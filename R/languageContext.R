@@ -93,7 +93,7 @@ dbxRunCommand <- function(command, wait=0
                     ,password=options("databricks")[[1]]$password)
 {
   checkOptions(command,ctx,instance, clusterId,user, password)
-  url <- infuse("https://{{instance}}.cloud.databricks.com/api/1.2/commands/execute"
+  url <- infuse("https://{{instance}}.cloud.databricks.com/api/1.2/commands/execute",instance=instance)
   commandUrl<-POST(url
             ,body=list(language='python'
                        ,clusterId=clusterId
@@ -122,7 +122,7 @@ dbxRunCommand <- function(command, wait=0
 ##' @details see https://docs.databricks.com/api/1.2/index.html#command-execution
 ##' @return a commandId
 ##' @export 
-dbxCmdStatus <- function(cmdId,
+dbxCmdStatus <- function(cmdId
                     ,ctx
                     ,instance=options("databricks")[[1]]$instance
                     ,clusterId=options("databricks")[[1]]$clusterId
@@ -149,7 +149,7 @@ dbxCmdStatus <- function(cmdId,
 ##' @details see https://docs.databricks.com/api/1.2/index.html#command-execution
 ##' @return a commandId
 ##' @export 
-dbxCmdCancel <- function(cmdId,
+dbxCmdCancel <- function(cmdId
                     ,ctx
                     ,instance=options("databricks")[[1]]$instance
                     ,clusterId=options("databricks")[[1]]$clusterId

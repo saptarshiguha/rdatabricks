@@ -170,7 +170,7 @@ autoscale <- function(min_workers, max_workers)
 ##' @details see https://docs.databricks.com/api/latest/clusters.html#resize
 ##' @return nothing
 ##' @export
-dbxResize <- function(cluster_id,
+dbxResize <- function(cluster_id
                     , token = options("databricks")[[1]]$token
                     , instance = options("databricks")[[1]]$instance)
 {
