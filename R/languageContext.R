@@ -1,10 +1,23 @@
-library(httr)
-library(infuser)
 
 checkOptions <- function(...){
   parms <- list(...)
   if(any(unlist(lapply(parms, function(k) is.null(k) || length(k)==0))))
     stop("One or more passed parameters is NULL or of length zero")
+}
+
+##' check if context is running
+##' @param ctx a context
+##' @export
+isContextRunning <- function(s){
+    return (identical(s$status,"Running"))
+}
+
+
+##' check if context is running
+##' @param ctx a context
+##' @export
+isCommandRunning <- function(s){
+    return (identical(s$status,"Running"))
 }
 
 ##' Create a Remote Language Context
@@ -77,9 +90,9 @@ dbxCtxDestroy <- function(ctx
 
 ##' Command execute
 ##' @param command a string command to be executed
+##' @param ctx the context for the language
 ##' @param wait if non zero, will wait till command is finnished. wait is seconds polling
 ##' @param language is the language of the command
-##' @param ctx the context for the language
 ##' @param instance is the instance of databricks 
 ##' @param clusterId is the clusterId you're working with
 ##' @param user your usename
@@ -87,8 +100,7 @@ dbxCtxDestroy <- function(ctx
 ##' @details see https://docs.databricks.com/api/1.2/index.html#command-execution
 ##' @return a commandId
 ##' @export 
-dbxRunCommand <- function(command, wait=0,language='python'
-                    ,ctx
+dbxRunCommand <- function(command, ctx,wait=0,language='python'
                     ,instance=options("databricks")[[1]]$instance
                     ,clusterId=options("databricks")[[1]]$clusterId
                     ,user=options("databricks")[[1]]$user
@@ -107,7 +119,7 @@ dbxRunCommand <- function(command, wait=0,language='python'
   if(wait>0){
     while(TRUE){
       status = dbxCmdStatus(commandCtx,ctx,instance,clusterId,user,password)
-      if(hasEnded(status)) return(status) else sleep(wait)
+      if(isCommandRunning(status)) {cat("\n");return(status)} else {cat(".");sleep(wait)}
     }
   }else{
     commandCtx

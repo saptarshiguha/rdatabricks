@@ -1,5 +1,3 @@
-library(rjson)
-library(httr)
 ul <- function(s,f,h=as.character) h(unlist(lapply(s,f)))
 
 ##' Get the different versions of spark available

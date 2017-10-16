@@ -4,7 +4,8 @@
 \alias{dbxCtxMake}
 \title{Create a Remote Language Context}
 \usage{
-dbxCtxMake(instance = options("databricks")[[1]]$instance,
+dbxCtxMake(language = "python",
+  instance = options("databricks")[[1]]$instance,
   clusterId = options("databricks")[[1]]$clusterId,
   user = options("databricks")[[1]]$user,
   password = options("databricks")[[1]]$password)
@@ -17,6 +18,8 @@ dbxCtxMake(instance = options("databricks")[[1]]$instance,
 \item{user}{your usename}
 
 \item{password}{your password}
+
+\item{the}{language context}
 }
 \value{
 a context object

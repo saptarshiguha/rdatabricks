@@ -4,7 +4,7 @@
 \alias{dbxRunCommand}
 \title{Command execute}
 \usage{
-dbxRunCommand(command, wait = 0, ctx,
+dbxRunCommand(command, ctx, wait = 0, language = "python",
   instance = options("databricks")[[1]]$instance,
   clusterId = options("databricks")[[1]]$clusterId,
   user = options("databricks")[[1]]$user,
@@ -13,9 +13,11 @@ dbxRunCommand(command, wait = 0, ctx,
 \arguments{
 \item{command}{a string command to be executed}
 
+\item{ctx}{the context for the language}
+
 \item{wait}{if non zero, will wait till command is finnished. wait is seconds polling}
 
-\item{ctx}{the context for the language}
+\item{language}{is the language of the command}
 
 \item{instance}{is the instance of databricks}
 
