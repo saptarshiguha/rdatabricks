@@ -8,6 +8,7 @@ checkOptions <- function(...){
 }
 
 ##' Create a Remote Language Context
+##' @param the language context
 ##' @param instance is the instance of databricks 
 ##' @param clusterId is the clusterId you're working with
 ##' @param user your usename
@@ -15,14 +16,14 @@ checkOptions <- function(...){
 ##' @details see https://docs.databricks.com/api/1.2/index.html#execution-context
 ##' @return a context object
 ##' @export 
-dbxCtxMake <- function(instance=options("databricks")[[1]]$instance
+dbxCtxMake <- function(language='python',instance=options("databricks")[[1]]$instance
                     ,clusterId=options("databricks")[[1]]$clusterId
                     ,user=options("databricks")[[1]]$user
                     ,password=options("databricks")[[1]]$password)
 {
   checkOptions(instance, clusterId,user, password)
   url <- infuse("https://{{instance}}.cloud.databricks.com/api/1.2/contexts/create",instance=instance)
-  pyctx<-POST(url,body=list(language='python', clusterId=clusterId)
+  pyctx<-POST(url,body=list(language=language, clusterId=clusterId)
     ,encode='form'
     ,authenticate(user,password))
   pyctxId <- content(pyctx)$id
@@ -77,6 +78,7 @@ dbxCtxDestroy <- function(ctx
 ##' Command execute
 ##' @param command a string command to be executed
 ##' @param wait if non zero, will wait till command is finnished. wait is seconds polling
+##' @param language is the language of the command
 ##' @param ctx the context for the language
 ##' @param instance is the instance of databricks 
 ##' @param clusterId is the clusterId you're working with
@@ -85,7 +87,7 @@ dbxCtxDestroy <- function(ctx
 ##' @details see https://docs.databricks.com/api/1.2/index.html#command-execution
 ##' @return a commandId
 ##' @export 
-dbxRunCommand <- function(command, wait=0
+dbxRunCommand <- function(command, wait=0,language='python'
                     ,ctx
                     ,instance=options("databricks")[[1]]$instance
                     ,clusterId=options("databricks")[[1]]$clusterId
@@ -95,7 +97,7 @@ dbxRunCommand <- function(command, wait=0
   checkOptions(command,ctx,instance, clusterId,user, password)
   url <- infuse("https://{{instance}}.cloud.databricks.com/api/1.2/commands/execute",instance=instance)
   commandUrl<-POST(url
-            ,body=list(language='python'
+            ,body=list(language=language
                        ,clusterId=clusterId
                        ,contextId=ctx
                        ,command=command)
