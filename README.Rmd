@@ -1,0 +1,152 @@
+# rdatabricks
+
+An R Package that wraps the Databricks REST API. You can find the API at
+https://docs.databricks.com/api/index.html. This package is designed assuming
+you're a paying customer of DataBricks.
+
+The idea is to implement the cluster admin API (using their v2.0 API) and the command execution API (v1.2)
+
+This package also contains engine for knitr so you can run RMarkdown documents
+with codeblocks that call code that will be run on remote clusters.
+
+
+## Examples of context creation and command execution
+
+Set configuration parameters
+
+```{r}
+options(databricks = list(
+            instance  = "instance",
+            clusterId = 'ciid',
+            user      = "user",
+            password  =  "pwd"))
+```
+
+
+create a context (parameters are taken from `options`), default language is python.
+
+```{r}
+ctx <- dbxCtxMake()
+ctxStats <- dbxCtxStatus(ctx)
+isContextRunning(ctxStats)
+```
+
+Send a command to the context (default language is python)
+
+```{r}
+cmd <- '
+import sys
+import datetime
+import random
+import subprocess
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.getOrCreate()
+ms = spark.read.option("mergeSchema", "true").parquet("s3://telemetry-parquet/main_summary/v4/")
+ms.createOrReplaceTempView("ms")
+'
+
+cid <- dbxRunCommand(cmd,ctx=ctx)
+while(TRUE){
+    r <- dbxCmdStatus(cid,ctx)
+    if(!isCommandRunning(r)) {cat("\n"); break}
+    cat("." )
+    Sys.sleep(5)
+    ## this loop is equivalent to dbxRunCommand(cmd,ctx=ctx,wait=5)
+}
+$id
+[1] "e90e0e8688ad45408d5733611d04a218"
+
+$status
+[1] "Finished"
+
+$results
+$results$resultType
+[1] "text"
+
+$results$data
+[1] ""
+```
+
+
+See an error
+
+```{r}
+cid3 <- dbxRunCommand("x+o",ctx=ctx,wait=5)
+Waiting for command: 85475c026fb44ffdb44bf3d72a9c6716 to finish
+$id
+[1] "85475c026fb44ffdb44bf3d72a9c6716"
+
+$status
+[1] "Finished"
+
+$results
+$results$resultType
+[1] "error"
+
+$results$summary
+[1] "<span class=\"ansired\">NameError</span>: name &apos;x&apos; is not defined"
+
+$results$cause
+[1] "---------------------------------------------------------------------------\nNameError                                 Traceback (most recent call last)\n<command--1> in <module>()\n----> 1 x+o\n\nNameError: name 'x' is not defined"
+```
+
+
+
+Get plot output
+
+```{r}
+
+cmd2 <- '
+import numpy as np
+import matplotlib.pyplot as plt
+x = np.linspace(0, 2*np.pi, 50)
+y = np.sin(x)
+y2 = y + 0.1 * np.random.normal(size=x.shape)
+fig, ax = plt.subplots()
+ax.plot(x, y, "k--")
+ax.plot(x, y2, "ro")
+ax.set_xlim((0, 2*np.pi))
+ax.set_xticks([0, np.pi, 2*np.pi])
+ax.set_ylim((-1.5, 1.5))
+ax.set_yticks([-1, 0, 1])
+ax.spines["left"].set_bounds(-1, 1)
+ax.spines["right"].set_visible(False)
+ax.spines["top"].set_visible(False)
+ax.yaxis.set_ticks_position("left")
+ax.xaxis.set_ticks_position("bottom")
+display(fig)
+'
+
+cid2 <- dbxRunCommand(cmd2,ctx=ctx,wait=2)
+Waiting for command: 70559981ebb6420eadfb3ea33adf2603 to finish
+$id
+[1] "70559981ebb6420eadfb3ea33adf2603"
+
+$status
+[1] "Running"
+
+$results
+NULL
+
+$id
+[1] "70559981ebb6420eadfb3ea33adf2603"
+
+$status
+[1] "Finished"
+
+$results
+$results$resultType
+[1] "image"
+
+$results$fileName
+[1] "/plots/78fa8d5e-47c3-4622-aad1-7c83d1c6cf4e.png"
+```
+
+## todo
+
+- complete the cluster admin API
+- library install API
+- jobs API
+
+

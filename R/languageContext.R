@@ -117,9 +117,10 @@ dbxRunCommand <- function(command, ctx,wait=0,language='python'
             ,authenticate(user,password))
   commandCtx <- content(commandUrl)$id
   if(wait>0){
+    cat(sprintf("Waiting for command: %s to finish\n", commandCtx))
     while(TRUE){
       status = dbxCmdStatus(commandCtx,ctx,instance,clusterId,user,password)
-      if(isCommandRunning(status)) {cat("\n");return(status)} else {cat(".");sleep(wait)}
+      if(!isCommandRunning(status)) {cat(".\n");return(status)} else {cat(".");Sys.sleep(wait)}
     }
   }else{
     commandCtx
