@@ -16,10 +16,12 @@ databricksPythonEngine <- function(options){
     if (paste(options$code, sep = "", collapse = "") == "")
         return(knitr::engine_output(options, options$code, NULL, NULL))
     code <- paste(options$code, sep = "", collapse = "\n")
-    cid3 <- dbxRunCommand(code,ctx=ctx,wait=3)
     extra = NULL
+    out <- NULL
+    if(options$eval){
+    cid3 <- dbxRunCommand(code,ctx=ctx,wait=3)
     if(cid3$results$resultType=="error"){
-        out <- cid3$results$cause
+        stop(out <- cid3$results$cause)
     }else if(cid3$results$resultType=="image"){
         system(sprintf("dbfs cp dbfs:/FileStore%s %s/", cid3$results$fileName,tempdir()))
         f <- sprintf("%s/%s",tempdir(),basename(cid3$results$fileName))
@@ -28,6 +30,7 @@ databricksPythonEngine <- function(options){
         if(is.null(out)) out <- ""
     }else if(cid3$results$resultType=="text"){
         out <- cid3$results$data
+    }
     }
     knitr::engine_output(options, options$code, out,extra)
 }
