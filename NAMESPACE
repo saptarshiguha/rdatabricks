@@ -2,6 +2,7 @@
 
 export(autoscale)
 export(databricksPythonEngine)
+export(databricksREngine)
 export(dbxCmdCancel)
 export(dbxCmdStatus)
 export(dbxCtxDestroy)

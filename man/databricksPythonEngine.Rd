@@ -2,10 +2,10 @@
 % Please edit documentation in R/knitr_engines.R
 \name{databricksPythonEngine}
 \alias{databricksPythonEngine}
-\title{Engine for Knitr}
+\title{Databricks Python Engine for Knitr}
 \usage{
 databricksPythonEngine(options)
 }
 \description{
-Engine for Knitr
+Databricks Python Engine for Knitr
 }
