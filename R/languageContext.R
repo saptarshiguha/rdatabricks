@@ -115,7 +115,7 @@ dbxRunCommand <- function(command, ctx,wait=0,language='python'
                        ,command=command)
             ,encode='form'
              ,authenticate(user,password))
-  if( !is.null(content(commandUrl)$error)) stop(sprintf("rdatabricks: %s",content(commandUrl)$error))
+  if( !is.null(content(commandUrl)$error)) stop(sprintf("rdatabricks: %s\nYou might want to delete the dbpycontext option",content(commandUrl)$error))
   commandCtx <- content(commandUrl)$id
   if(wait>0){
     cat(sprintf("Waiting for command: %s to finish\n", commandCtx))
