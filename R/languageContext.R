@@ -114,7 +114,8 @@ dbxRunCommand <- function(command, ctx,wait=0,language='python'
                        ,contextId=ctx
                        ,command=command)
             ,encode='form'
-            ,authenticate(user,password))
+             ,authenticate(user,password))
+  if( !is.null(content(commandUrl)$error)) stop(sprintf("rdatabricks: %s",content(commandUrl)$error))
   commandCtx <- content(commandUrl)$id
   if(wait>0){
     cat(sprintf("Waiting for command: %s to finish\n", commandCtx))
