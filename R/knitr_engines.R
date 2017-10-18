@@ -44,15 +44,15 @@ databricksREngine <- function(options){
     ## if(!(!is.null(options$dbx) && options$dbx==TRUE)){
     ##     return(getOption("databricksOldPythonEgine")(options))
     ## }
-    if(is.null(getOption("dbRcontext"))){
-        r <- dbxCtxMake(language='r')
+    if(is.null(getOption("dbpycontext"))){
+        r <- dbxCtxMake()
         while(TRUE){
             ctxStats <- dbxCtxStatus(r)
             if(isContextRunning(ctxStats)) break
         }
-        options(dbRcontext=r)
+        options(dbpycontext=r)
     }
-    ctx <- getOption("dbRcontext")
+    ctx <- getOption("dbpycontext")
     if (paste(options$code, sep = "", collapse = "") == "")
         return(knitr::engine_output(options, options$code, NULL, NULL))
     code <- paste(options$code, sep = "", collapse = "\n")
