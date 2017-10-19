@@ -22,6 +22,10 @@ databricksPythonEngine <- function(options){
     print(options$eval)
     if(options$eval){
         cid3 <- dbxRunCommand(code,ctx=ctx,language='python',wait=3)
+        if(!is.null(getOption("databricks")$debug)
+           && getOption("databricks")$debug>0){
+            print(cid3)
+        }
         if(cid3$results$resultType=="error"){
             (out <- cid3$results$cause)
         }else if(cid3$results$resultType=="image"){
@@ -59,7 +63,11 @@ databricksREngine <- function(options){
     extra = NULL
     out <- NULL
     if(options$eval){
-    cid3 <- dbxRunCommand(code,ctx=ctx,language='r',wait=3)
+        cid3 <- dbxRunCommand(code,ctx=ctx,language='r',wait=3)
+        if(!is.null(getOption("databricks")$debug)
+           && getOption("databricks")$debug>0){
+            print(cid3)
+        }
     if(cid3$results$resultType=="error"){
         (out <- cid3$results$cause)
     }else if(cid3$results$resultType=="image"){
