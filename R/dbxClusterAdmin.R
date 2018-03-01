@@ -98,7 +98,7 @@ dbxDelete <- function(cluster_id
     body <- list("cluster_id" = as.character(cluster_id))
     
     res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
-                body = body,
+                body = body
               , encode = "json")
     TRUE
 }
@@ -119,7 +119,7 @@ dbxRestart <- function(cluster_id
     url <- infuse("https://{{instance}}.cloud.databricks.com/api/2.0/clusters/restart",instance=instance)
     body <- list("cluster_id" = as.character(cluster_id))
     res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
-                body = body,
+                body = body
               , encode = "json")
     TRUE
 }
@@ -140,7 +140,7 @@ dbxStart <- function(cluster_id
     url <- infuse("https://{{instance}}.cloud.databricks.com/api/2.0/clusters/start",instance=instance)
     body <- list("cluster_id" = as.character(cluster_id))
     res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
-                body = body,
+                body = body
               , encode = "json")
     TRUE
 }
