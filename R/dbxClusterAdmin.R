@@ -1,5 +1,13 @@
 ul <- function(s,f,h=as.character) h(unlist(lapply(s,f)))
-
+tryParsing <- function(r){
+    s <- content(r)
+    if(is.character(s)) {
+        rq = fromJSON(s)
+        err = sprintf("%s:: %s",rq$error_code, rq$message)
+        return(list(status=FALSE,content=err))
+     } else{
+        return(list(status=TRUE, content=fromJSON(s)))
+}
 ##' Get the different versions of spark available
 ##' @param token obtained from databricks
 ##' @param instance from frank
@@ -100,7 +108,8 @@ dbxDelete <- function(cluster_id
     res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
                 body = body
               , encode = "json")
-    TRUE
+    r = tryParsing(res)
+    if(r$status) r$content else stop(r$content)
 }
 
 
@@ -121,7 +130,8 @@ dbxRestart <- function(cluster_id
     res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
                 body = body
               , encode = "json")
-    fromJSON(content(res))
+    r = tryParsing(res)
+    if(r$status) r$content else stop(r$content)
 }
 
 
@@ -142,7 +152,8 @@ dbxStart <- function(cluster_id
     res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
                 body = body
               , encode = "json")
-    res
+    r = tryParsing(res)
+    if(r$status) r$content else stop(r$content)
 }
 
 ##' Returns an autoscale structure
@@ -188,5 +199,30 @@ dbxResize <- function(cluster_id
     res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
                 body = body,
               , encode = "json")
-    fromJSON(content(res))
+    r = tryParsing(res)
+    if(r$status) r$content else stop(r$content)
 }
+                                  
+                                  
+                                  ##' Get information about  a cluster
+##' @param cluster_id a string
+##' @details see https://docs.databricks.com/api/latest/clusters.html#get
+##' @return a big json
+##' @export
+dbxGet <- function(cluster_id
+                    , token = options("databricks")[[1]]$token
+                    , instance = options("databricks")[[1]]$instance)
+{
+
+
+    if(is.null(token) || is.null(instance)) stop("Must provide a token and instance")
+    url <- infuse("https://{{instance}}.cloud.databricks.com/api/2.0/clusters/get",instance=instance)
+    body <- list("cluster_id" = as.character(cluster_id))
+    res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
+                body = body
+              , encode = "json")
+   if(r$status) r$content else stop(r$content)
+}
+
+
+
