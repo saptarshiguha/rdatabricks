@@ -142,7 +142,7 @@ dbxStart <- function(cluster_id
     res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
                 body = body
               , encode = "json")
-    TRUE
+    res
 }
 
 ##' Returns an autoscale structure
