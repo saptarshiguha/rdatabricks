@@ -7,7 +7,8 @@ tryParsing <- function(r){
         return(list(status=FALSE,content=err))
      } else{
         return(list(status=TRUE, content=fromJSON(s)))
-}
+     }
+ }
 ##' Get the different versions of spark available
 ##' @param token obtained from databricks
 ##' @param instance from frank
