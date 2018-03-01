@@ -223,5 +223,26 @@ dbxGet <- function(cluster_id
 #   if(r$status) r$content else stop(r$content)
 }
 
+                                 ##' Get information about  a cluster
+##' @param cluster_id a string
+##' @details see https://docs.databricks.com/api/latest/clusters.html#delete
+##' @return a big json
+##' @export
+dbxDelete <- function(cluster_id
+                    , token = options("databricks")[[1]]$token
+                    , instance = options("databricks")[[1]]$instance)
+{
+
+
+    if(is.null(token) || is.null(instance)) stop("Must provide a token and instance")
+    url <- infuse("https://{{instance}}.cloud.databricks.com/api/2.0/clusters/delete",instance=instance)
+    body <- list("cluster_id" = as.character(cluster_id))
+    res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
+                body = body
+              , encode = "json")
+    fromJSON(content(res,as='text'))
+#   r<- tryParsing(res)
+#   if(r$status) r$content else stop(r$content)
+}
 
 
