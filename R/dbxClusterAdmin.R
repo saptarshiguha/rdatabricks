@@ -109,8 +109,7 @@ dbxDelete <- function(cluster_id
     res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
                 body = body
               , encode = "json")
-    r = tryParsing(res)
-    if(r$status) r$content else stop(r$content)
+content(res,as='parsed')
 }
 
 
@@ -131,8 +130,7 @@ dbxRestart <- function(cluster_id
     res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
                 body = body
               , encode = "json")
-    r = tryParsing(res)
-    if(r$status) r$content else stop(r$content)
+content(res,as='parsed')
 }
 
 
@@ -153,8 +151,7 @@ dbxStart <- function(cluster_id
     res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
                 body = body
               , encode = "json")
-    r = tryParsing(res)
-    if(r$status) r$content else stop(r$content)
+content(res,as='parsed')
 }
 
 ##' Returns an autoscale structure
@@ -200,8 +197,7 @@ dbxResize <- function(cluster_id
     res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
                 body = body,
               , encode = "json")
-    r = tryParsing(res)
-    if(r$status) r$content else stop(r$content)
+content(res,as='parsed')
 }
                                   
                                   
