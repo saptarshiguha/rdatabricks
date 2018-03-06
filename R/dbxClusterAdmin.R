@@ -136,10 +136,12 @@ fromJSON(content(res,as='text'))
 
 ##' Starts a terminated Spark cluster given its id
 ##' @param cluster_id a string
+##' @param wait if TRUE, wait till cluster starts
 ##' @details see https://docs.databricks.com/api/latest/clusters.html#restart
 ##' @return nothing
 ##' @export
 dbxStart <- function(cluster_id
+                     , wait = TRUE
                     , token = options("databricks")[[1]]$token
                     , instance = options("databricks")[[1]]$instance)
 {
@@ -151,7 +153,19 @@ dbxStart <- function(cluster_id
     res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
                 body = body
               , encode = "json")
-fromJSON(content(res,as='text'))
+    cl <- fromJSON(content(res,as='text'))
+    if(wait){
+        if(is.null(cl$"error_code")){
+            while(TRUE){
+                st <- dbxGet(getOption("databricks")$clusterId)$state
+                if(!is.null(st) && st !='RUNNING') Sys.sleep(5) else break
+            }
+        }else{
+            if(grepl("stat RUNNING", cl$"message")) return(cl)
+            stop(sprintf("problem starting cluster %s", cl$message))
+        }
+    }
+    cl
 }
 
 ##' Returns an autoscale structure
