@@ -48,8 +48,9 @@ databricksPythonEngine <- function(options){
         }
         if(identical(cid3$results$resultType,"error")){
             (out <- cid3$results$cause)
-            if(!is.null(options$stopOnError) && options$stopOnError==TRUE){
-                stop(out)
+            if(identical(options$stopOnError,TRUE)){
+                cat(out)
+                stop("Error In Python Code")
             }
         }else if(identical(cid3$results$resultType,"image")){
             system(sprintf("dbfs cp dbfs:/FileStore%s %s/", cid3$results$fileName,tempdir()))
