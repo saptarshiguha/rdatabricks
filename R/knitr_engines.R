@@ -2,20 +2,17 @@
 ##'@export
 databricksPythonEngine <- function(options){
     if(is.null(getOption("dbpycontext"))){
-        r <- dbxCtxMake()
-        while(TRUE){
-            ctxStats <- dbxCtxStatus(r)
-            if(isContextRunning(ctxStats)) break
-        }
-        options(dbpycontext=r)
+        r <- dbxCtxMake(wait=TRUE)
     }
     ctx <- getOption("dbpycontext")
     if (paste(options$code, sep = "", collapse = "") == "")
         return(knitr::engine_output(options, options$code, NULL, NULL))
     code <- paste(options$code, sep = "", collapse = "\n")
-    pc <- dbxCmdStatus()
-    if(!identical(pc$status,"Finished")){
-        message(sprintf("Already running command( %s ), with status: %s. You can kill it with dbxCmdCancel('%s') ", pc$id,pc$status,pc$id))
+    if(!is.null(getOption("databricks")$currentCommand)) {
+        pc <- dbxCmdStatus()
+        if(!identical(pc$status,"Finished")){
+            message(sprintf("Already running command( %s ), with status: %s. You can kill it with dbxCmdCancel('%s') ", pc$id,pc$status,pc$id))
+        }
     }
     extra = NULL
     out <- NULL

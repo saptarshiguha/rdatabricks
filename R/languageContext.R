@@ -22,7 +22,8 @@ isCommandRunning <- function(s){
 
 ##' Create a Remote Language Context
 ##' @param the language context
-##' @param instance is the instance of databricks 
+##' @param instance is the instance of databricks
+##' @param wait should i wait for context to start?
 ##' @param clusterId is the clusterId you're working with
 ##' @param user your usename
 ##' @param password your password
@@ -30,6 +31,7 @@ isCommandRunning <- function(s){
 ##' @return a context object
 ##' @export 
 dbxCtxMake <- function(language='python',instance=options("databricks")[[1]]$instance
+                       ,wait=TRUE
                       ,clusterId=options("databricks")[[1]]$clusterId
                       ,user=options("databricks")[[1]]$user
                       ,password=options("databricks")[[1]]$password)
@@ -50,6 +52,13 @@ dbxCtxMake <- function(language='python',instance=options("databricks")[[1]]$ins
       o <- getOption("databricks")
       o$log <- f
       options(databricks=o)
+  }
+  if(wait){
+      while(TRUE){
+          ctxStats <- dbxCtxStatus(pyctxId)
+          if(isContextRunning(ctxStats)) break
+      }
+      options(dbpycontext=pyctxId)
   }
   pyctxId
 }
@@ -147,10 +156,12 @@ dbxRunCommand <- function(command, ctx,wait=0,language='python'
         if(poll.log){
             oo <- sprintf("aws s3 cp s3://%s %s > /dev/null 2>&1", s3location, tfile)
             system(oo)
-            newlines <- readLines(tfile)
-            extra <- setdiff(newlines, currentlines)
-            message(paste(extra, collapse="\n"))
-            currentlines <- newlines
+            if(file.exists(tfile)){
+                newlines <- readLines(tfile)
+                extra <- setdiff(newlines, currentlines)
+                message(paste(extra, collapse="\n"))
+                currentlines <- newlines
+            }
         }
         if(!isCommandRunning(status)) {cat(".\n");return(status)} else {cat(".");Sys.sleep(wait)}
     }
@@ -168,7 +179,8 @@ dbxRunCommand <- function(command, ctx,wait=0,language='python'
 ##' @param password your password
 ##' @details see https://docs.databricks.com/api/1.2/index.html#command-execution
 ##' @return a commandId
-##' @export 
+##' @
+##' export 
 dbxCmdStatus <- function(cmdId=getOption("databricks")$currentCommand
                     ,ctx=getOption("dbpycontext")
                     ,instance=options("databricks")[[1]]$instance
