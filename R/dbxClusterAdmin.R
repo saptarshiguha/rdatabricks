@@ -155,10 +155,12 @@ dbxStart <- function(cluster_id
               , encode = "json")
     cl <- fromJSON(content(res,as='text'))
     if(wait){
+        message("Waiting:")
         if(is.null(cl$"error_code")){
             while(TRUE){
                 st <- dbxGet(getOption("databricks")$clusterId)$state
-                if(!is.null(st) && st !='RUNNING') Sys.sleep(5) else break
+                print(st)
+                if(!is.null(st) && st !='RUNNING') {cat(".");Sys.sleep(5)} else {cat("\n");break}
             }
         }else{
             if(grepl("state Running", cl$"message")) return(cl)

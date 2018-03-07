@@ -1,6 +1,7 @@
 ##' Databricks Python Engine for Knitr
 ##'@export
 databricksPythonEngine <- function(options){
+    if(identical(options$eval,FALSE)) return(knitr::engine_output(options, options$code, NULL,NULL))
     if(is.null(getOption("dbpycontext"))){
         r <- dbxCtxMake(wait=TRUE)
     }
