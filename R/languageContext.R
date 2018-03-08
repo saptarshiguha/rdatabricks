@@ -154,7 +154,7 @@ dbxRunCommand <- function(command, ctx,wait=0,language='python'
     cat(sprintf("Waiting for command: %s to finish\n", commandCtx))
     while(TRUE){
         status = dbxCmdStatus(commandCtx,ctx,instance,clusterId,user,password)
-        if(poll.log){
+        if(poll.log && !is.null(s3location)){
             oo <- sprintf("aws s3 cp s3://%s %s > /dev/null 2>&1", s3location, tfile)
             tryCatch({
                 system(oo)
@@ -164,7 +164,7 @@ dbxRunCommand <- function(command, ctx,wait=0,language='python'
                     message(paste(extra, collapse="\n"))
                     currentlines <- newlines
                 }
-            },error=function(e) print(as.character(e)))
+            },error=function(e) stop(as.character(e)))
         }
         if(!isCommandRunning(status)) {cat(".\n");return(status)} else {cat(".");Sys.sleep(wait)}
     }
