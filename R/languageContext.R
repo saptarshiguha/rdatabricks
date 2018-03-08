@@ -156,13 +156,15 @@ dbxRunCommand <- function(command, ctx,wait=0,language='python'
         status = dbxCmdStatus(commandCtx,ctx,instance,clusterId,user,password)
         if(poll.log){
             oo <- sprintf("aws s3 cp s3://%s %s > /dev/null 2>&1", s3location, tfile)
-            system(oo)
-            if(file.exists(tfile)){
-                newlines <- readLines(tfile)
-                extra <- setdiff(newlines, currentlines)
-                message(paste(extra, collapse="\n"))
-                currentlines <- newlines
-            }
+            tryCatch({
+                system(oo)
+                if(file.exists(tfile)){
+                    newlines <- readLines(tfile)
+                    extra <- setdiff(newlines, currentlines)
+                    message(paste(extra, collapse="\n"))
+                    currentlines <- newlines
+                }
+            },error=function(e) print(as.character(e)))
         }
         if(!isCommandRunning(status)) {cat(".\n");return(status)} else {cat(".");Sys.sleep(wait)}
     }
