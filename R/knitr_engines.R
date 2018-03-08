@@ -56,6 +56,9 @@ databricksPythonEngine <- function(options){
         }else if(identical(cid3$results$resultType,"image")){
             system(sprintf("dbfs cp dbfs:/FileStore%s %s/", cid3$results$fileName,tempdir()))
             f <- sprintf("%s/%s",tempdir(),basename(cid3$results$fileName))
+            if(file.exists("~/imgcat")){
+                system(sprintf("~/imgcat %s",f))
+            }
             if(is.null(options$fromEmacs))
                 extra <- sapply(f, function(f) knitr::knit_hooks$get("plot")(f, options))
             out <- cid3$results$data

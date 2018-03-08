@@ -58,7 +58,8 @@ dbxCtxMake <- function(language='python',instance=options("databricks")[[1]]$ins
           ctxStats <- dbxCtxStatus(pyctxId)
           if(isContextRunning(ctxStats)) break
       }
-      options(dbpycontext=pyctxId)
+      if(language=='python') options(dbpycontext=pyctxId)
+      if(language %in% c('R','r')) options(dbrcontext=pyctxId)
   }
   pyctxId
 }
