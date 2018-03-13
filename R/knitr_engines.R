@@ -5,7 +5,10 @@ databricksPythonEngine <- function(options){
     if(is.null(getOption("dbpycontext"))){
         r <- dbxCtxMake(wait=TRUE)
     }
-    ctx <- getOption("dbpycontext")
+    if(is.null(options$ctx))
+        ctx <- getOption("dbpycontext")
+    else
+        ctx <- options$ctx
     if (paste(options$code, sep = "", collapse = "") == "")
         return(knitr::engine_output(options, options$code, NULL, NULL))
     code <- paste(options$code, sep = "", collapse = "\n")
@@ -19,6 +22,7 @@ databricksPythonEngine <- function(options){
     out <- NULL
     wait <- options$wait
     if(is.null(wait)) wait <- 3
+    ## set jobgroup
     ## replace code with variables
     repl <- gregexpr("\\(__REPLACE__[a-zA-z0-9]+\\)",code)[[1]]
     repl.ml <- attr(repl,"match.length")
@@ -32,6 +36,14 @@ databricksPythonEngine <- function(options){
             }
     }
     if(!identical(options$showme,FALSE)) cat(sprintf("----Code Sent to Databricks Python Context----\n\n%s\n\n-----\n",code))
+    jg <- getOption("currentJobGroup")
+    if(TRUE || is.null(jg)){
+        jg  <- sprintf("sguha %s",digest(runif(1),algo='md5'))
+        options(currentJobGroup = jg)
+    }
+    code <- sprintf("sc.setJobGroup('%s', 'SGuhas work')
+__jg = '%s'
+%s",jg,jg,code)
     require(digest)
     tid <- digest(runif(1),algo="md5")
     if(is.null(f <- getOption("databricks")$log$dataKeyPrefix)){
@@ -43,9 +55,11 @@ databricksPythonEngine <- function(options){
             datadir <- sprintf("%s/%s",f,tid)
             ## Modify Code to write output to folder
             dloc <- sprintf('s3://%s/%s', bk, datadir)
-            message(sprintf("Useful objects for this run (if any) found at %s", dloc))
+            if(!identical(options$showOutput,FALSE)) message(sprintf("Useful objects for this run (if any) found at %s", dloc))
             code = sprintf("
-___lastvalue = exec_then_eval('''%s''')
+___lastvalue = exec_then_eval('''
+%s
+''')
 if ___lastvalue is not None:
  _saveToS3(___lastvalue,'%s','%s')
 ___lastvalue
@@ -54,7 +68,8 @@ ___lastvalue
 
     }
     if(options$eval){
-        cid3 <- dbxRunCommand(code,ctx=ctx,language='python',wait=wait,
+        cid3 <- dbxRunCommand(code,ctx=ctx,language='python',wait=wait,quiet=identical(options$showOutput,FALSE),
+                              progress = if(is.null(options$progress)) FALSE else TRUE,
                               poll.log=if(is.null(options$poll)) TRUE else as.logical(options$poll))
         if(!is.null(getOption("databricks")$debug)
            && getOption("databricks")$debug>0){
@@ -104,7 +119,7 @@ ___lastvalue
     if(is.null(options$fromEmacs))
         knitr::engine_output(options, options$code, out,extra)
     else{
-        cat(sprintf("\n----Output----\n\n %s\n\n----\n",out))
+        if(!identical(options$showOutput,FALSE)) cat(sprintf("\n----Output----\n\n %s\n\n----\n",out))
     }
 }
 
