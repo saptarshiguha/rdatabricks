@@ -48,7 +48,8 @@ dbxCtxMake <- function(language='python',instance=options("databricks")[[1]]$ins
       prefix <- f$prefix
       if(endsWith(bucket,"/")) bucket <- substr(bucket, 1,nchar(bucket)-1)
       if(endsWith(prefix,"/")) prefix <- substr(prefix, 1,nchar(prefix)-1)
-      f$location <- sprintf("%s/%s/%s/logfile.txt", bucket, prefix,pyctxId) 
+      f$location <- sprintf("%s/%s/%s/logfile.txt", bucket, prefix,pyctxId)
+      f$dataKeyPrefix <- sprintf("%s/%s/data", prefix,pyctxId) 
       o <- getOption("databricks")
       o$log <- f
       options(databricks=o)

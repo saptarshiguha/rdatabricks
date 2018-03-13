@@ -31,8 +31,28 @@ databricksPythonEngine <- function(options){
             code <- gsub(var0, theVar, code,fixed=TRUE)
             }
     }
-    cat(sprintf("----Code Sent to Databricks Python Context----\n\n%s\n\n-----\n",code))
-    #print(options$eval)
+    if(!identical(options$showme,FALSE)) cat(sprintf("----Code Sent to Databricks Python Context----\n\n%s\n\n-----\n",code))
+    require(digest)
+    tid <- digest(runif(1),algo="md5")
+    if(is.null(f <- getOption("databricks")$log$dataKeyPrefix)){
+        warning("log$data missing,auto data download wont work")
+    }else{
+
+        if(identical(options$autoDownloadObject,TRUE)){
+            bk <- getOption("databricks")$log$bucket
+            datadir <- sprintf("%s/%s",f,tid)
+            ## Modify Code to write output to folder
+            dloc <- sprintf('s3://%s/%s', bk, datadir)
+            message(sprintf("Useful objects for this run (if any) found at %s", dloc))
+            code = sprintf("
+___lastvalue = exec_then_eval('''%s''')
+if ___lastvalue is not None:
+ _saveToS3(___lastvalue,'%s','%s')
+___lastvalue
+", code,bk,datadir)
+        }
+
+    }
     if(options$eval){
         cid3 <- dbxRunCommand(code,ctx=ctx,language='python',wait=wait,
                               poll.log=if(is.null(options$poll)) TRUE else as.logical(options$poll))
@@ -40,6 +60,7 @@ databricksPythonEngine <- function(options){
            && getOption("databricks")$debug>0){
             print(cid3)
         }
+        if(is.character(cid3)) return(cid3)
         if(!is.null(cid3$status) && cid3$status=="Queued"){
             warning(sprintf("Command with id: %s is queued,waiting", cid3$id))
             while(TRUE){
@@ -50,13 +71,15 @@ databricksPythonEngine <- function(options){
         if(identical(cid3$results$resultType,"error")){
             (out <- cid3$results$cause)
             if(identical(options$stopOnError,TRUE)){
-                cat(out)
+                cat(sprintf("%s\n",out))
                 stop("Error In Python Code")
             }
         }else if(identical(cid3$results$resultType,"image")){
             system(sprintf("dbfs cp dbfs:/FileStore%s %s/", cid3$results$fileName,tempdir()))
             f <- sprintf("%s/%s",tempdir(),basename(cid3$results$fileName))
-            if(file.exists("~/imgcat")){
+            if(file.exists("~/imgcat") && interactive()){
+                file.copy(f,"~/public_html/tmp/")
+                message(sprintf("viewing %s ", basename(f)))
                 system(sprintf("~/imgcat %s",f))
             }
             if(is.null(options$fromEmacs))
@@ -65,6 +88,16 @@ databricksPythonEngine <- function(options){
             if(is.null(out)) out <- ""
         }else if(identical(cid3$results$resultType,"text")){
             out <- cid3$results$data
+        }
+        if(identical(options$autoDownloadObject,TRUE)){
+            system(sprintf("rm -rf /tmp/jaxir ; aws s3 sync %s/ /tmp/jaxir &>/dev/null",dloc))
+            if(file.exists("/tmp/jaxir/lastobject.feather")){
+                require('feather');require(data.table)
+                assign(".Last.dbx",data.table(read_feather("/tmp/jaxir/lastobject.feather")),envi=.GlobalEnv)
+            }else if(file.exists("/tmp/jaxir/lastobject.json")){
+                require(rjson)
+                assign(".Last.dbx",fromJSON(file="/tmp/jaxir/lastobject.json"),envir=.GlobalEnv)
+            }
         }
     }
     options$engine='python'
