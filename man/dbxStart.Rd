@@ -5,7 +5,7 @@
 \title{Starts a terminated Spark cluster given its id}
 \usage{
 dbxStart(cluster_id, wait = TRUE, token = options("databricks")[[1]]$token,
-  instance = options("databricks")[[1]]$instance)
+  instance = options("databricks")[[1]]$instance, verbose = 0)
 }
 \arguments{
 \item{cluster_id}{a string}

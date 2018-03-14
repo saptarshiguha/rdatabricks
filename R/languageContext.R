@@ -72,7 +72,7 @@ dbxCtxMake <- function(language='python',instance=options("databricks")[[1]]$ins
   pyctx2<-POST(url,body=list(language=language, clusterId=clusterId)
               ,encode='form'
               ,authenticate(user,password))
-  pcontent <- content(pyctx)
+  pcontent <- content(pyctx2)
   pyctxId2 <- pcontent$id
   if(verbose>4) print(pyctx2)
   if(!is.null(pcontent$error))
@@ -100,10 +100,15 @@ dbxCtxMake <- function(language='python',instance=options("databricks")[[1]]$ins
       if(language %in% c('R','r')) options(dbrcontext=pyctxId)
       options(querycontext=pyctxId2)
   }
+
+  allcontexts <- getOption("dbctxlist")
+  if(is.null(allcontexts)) allcontexts <- list()
+  allcontexts[[ pyctxId ]] <- list(ctx=pyctxId, q=pyctxId2)
+  options(dbctxlist = allcontexts)
   pyctxId
 }
   
-##' Get Status of a Context
+##' Get Status of a Context>
 ##' @param ctx the context for the language
 ##' @param instance is the instance of databricks 
 ##' @param clusterId is the clusterId you're working with
@@ -126,7 +131,7 @@ dbxCtxStatus <- function(ctx=getOption("dbpycontext")
 }
 
 ##' Destroy. a Context
-##' @param ctx the context for the language
+##' @param ctx the context for the language (if null destroys all contexts)
 ##' @param instance is the instance of databricks 
 ##' @param clusterId is the clusterId you're working with
 ##' @param user your usename
@@ -134,18 +139,37 @@ dbxCtxStatus <- function(ctx=getOption("dbpycontext")
 ##' @details see https://docs.databricks.com/api/1.2/index.html#execution-context
 ##' @return an id you have nothing to do with
 ##' @export 
-dbxCtxDestroy <- function(ctx
+dbxCtxDestroy <- function(ctx=NULL
                     ,instance=options("databricks")[[1]]$instance
                     ,clusterId=options("databricks")[[1]]$clusterId
                     ,user=options("databricks")[[1]]$user
-                    ,password=options("databricks")[[1]]$password)
+                    ,password=options("databricks")[[1]]$password,verbose=0)
 {
- checkOptions(instance, clusterId,user, password)
-  url <- infuse("https://{{instance}}.cloud.databricks.com/api/1.2/contexts/destroy",instance=instance)
-  ctxDestroyCall<-POST(url,body=list(clusterId=clusterId,contextId=ctx)
-                     ,encode='form'
-                     ,authenticate(user,password))
-  ctxDestroy <- content(ctxDestroyCall)
+    .des <- function(ctx,instance, clusterId,user,password){
+        checkOptions(instance, clusterId,user, password)
+        url <- infuse("https://{{instance}}.cloud.databricks.com/api/1.2/contexts/destroy",instance=instance)
+        ctxDestroyCall<-POST(url,body=list(clusterId=clusterId,contextId=ctx)
+                            ,encode='form'
+                            ,authenticate(user,password))
+        ctxDestroy <- content(ctxDestroyCall)
+        allcontexts <- getOption("dbctxlist")
+        allcontexts[[ ctx ]] <- NULL
+        options(dbctxlist = allcontexts)
+        ctxDestroy
+    }
+    if(!is.null(ctx)){
+        .des(ctx,instance, clusterId, user,password)
+    }else{
+        allcontexts <- getOption("dbctxlist")
+        for(a in allcontexts){
+            if(verbose>2) print(sprintf("destroying %s, %s", a[[1]],a[[2]]))
+            .des(a[[1]],instance, clusterId,user,password)
+            .des(a[[2]],instance, clusterId,user,password)
+        }
+        options(querycontext=NULL)
+        options(dbpycontext=NULL)
+        options(dbrcontext=NULL)
+    }
 }
 
 
@@ -207,3 +231,32 @@ dbxCmdCancel <- function(cmdId=getOption("databricks")$currentCommand
   return(cancelCtx)
 }
 
+##' @export
+sendRaw <- function(code
+                  , ctx = getOption("dbpycontext")
+                  , instance =getOption("databricks")$instance
+                  , clusterId = getOption("databricks")$clusterId
+                  , user =  getOption("databricks")$user
+                  , password =  getOption("databricks")$password
+                  , verbose=0,wait=FALSE){
+    url <- infuse("https://{{instance}}.cloud.databricks.com/api/1.2/commands/execute",instance=instance)
+    if(verbose>=2) cat(code)
+    commandUrl<-POST(url
+                    ,body=list(language='python'
+                              ,clusterId=clusterId
+                              ,contextId=ctx
+                              ,command=code)
+                    ,encode='form'
+                    ,authenticate(user,password))
+    pc <- content(commandUrl)
+    if( !is.null(pc$error))
+        stop(sprintf("rdatabricks: %s\nYou might want to just call dbctx()"
+                    ,content(commandUrl)$error))
+    if(wait){
+        while(TRUE){
+            status <- dbxCmdStatus(pc$id,ctx,instance,clusterId,user,password)
+            if(!isCommandDone(status)){ Sys.sleep(2); } else break
+            }
+    }
+    return(pc)
+}

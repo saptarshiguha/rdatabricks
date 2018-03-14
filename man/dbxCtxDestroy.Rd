@@ -10,7 +10,7 @@ dbxCtxDestroy(ctx, instance = options("databricks")[[1]]$instance,
   password = options("databricks")[[1]]$password)
 }
 \arguments{
-\item{ctx}{the context for the language}
+\item{ctx}{the context for the language (if null destroys all contexts)}
 
 \item{instance}{is the instance of databricks}
 

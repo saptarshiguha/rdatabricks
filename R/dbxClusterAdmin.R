@@ -167,7 +167,7 @@ dbxStart <- function(cluster_id
                 st <- dbxGet(getOption("databricks")$clusterId)$state
                 if(verbose>4) print(st)
                 pb$tick(token=list(idx=as.character(cluster_id),state=st))
-                if(!is.null(st) && st !='RUNNING') {Sys.sleep(5)} else {break}
+                if(!is.null(st) && st !='RUNNING') {Sys.sleep(5)} else {    cat("\n");break}
             }
         }else{
             if(grepl("Running", cl$"message")) return(cl)
@@ -220,7 +220,7 @@ dbxResize <- function(cluster_id
     res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
                 body = body,
               , encode = "json")
-fromJSON(content(res,as='text'))
+    fromJSON(content(res,as='text'))
 }
                                   
                                   

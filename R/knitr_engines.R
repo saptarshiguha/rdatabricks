@@ -85,7 +85,7 @@ dbxExecuteCommand <- function(...){
     user <- ifn(options$user,dbo$user)
     password <- ifn(options$password,dbo$password)
 
-    ##main options
+    ## main options
     ## code
     ## showProg TRUE
     ## varEnv GlobalEnv
@@ -135,7 +135,12 @@ dbxExecuteCommand <- function(...){
     code <- replace.r.code(code, showCode,varEnv)
 
     ## Show log output during code?
-    dbxExecuteCommand(code=sprintf("hdlr.clear()"),displayLog=FALSE,showOutput=FALSE,showCode=FALSE)
+    sendRaw(code=sprintf("hdlr.clear()"),
+           instance=instance,
+            clusterId=clusterId,
+            ctx=ctx,verbose=verbose,
+            user=user,password=password,wait=TRUE)
+
     if(displayLog){
         s3location <- getOption("databricks")$log$location
         tfile <- tempfile(pattern='dbx')
@@ -184,19 +189,11 @@ ___lastvalue", code,bucket,datadir)
     ## if autoSave is TRUE ==> objects will be saved
     ## if displayLog is TRUE ==> logs will be shown
     ## if progress is TRUE ==> show progress bars (nuanced)
-
-    url <- infuse("https://{{instance}}.cloud.databricks.com/api/1.2/commands/execute",instance=instance)
-    if(verbose>=2) cat(code)
-    commandUrl<-POST(url
-                    ,body=list(language='python'
-                              ,clusterId=clusterId
-                              ,contextId=ctx
-                              ,command=code)
-                    ,encode='form'
-                    ,authenticate(user,password))
-    if( !is.null(content(commandUrl)$error))
-        stop(sprintf("rdatabricks: %s\nYou might want to just call dbctx()",content(commandUrl)$error))
-    commandCtx <- content(commandUrl)$id
+    commandCtx <- sendRaw(code=code, instance=instance,
+                          clusterId=clusterId,
+                          ctx=ctx,
+                          user=user,password=password,
+                          verbose=verbose)$id
 
     ## Get Status of Command before we get infos and progress
     status <- dbxCmdStatus(commandCtx,ctx,instance,clusterId,user,password)
@@ -213,7 +210,6 @@ ___lastvalue", code,bucket,datadir)
     }
     while(TRUE){
         statusResult <- getResults(status, verbose=verbose, interactiveCall=interactiveCall)
-        ## Show logs
         show.logger()
         
         if(statusResult$type=='error'){
@@ -230,7 +226,10 @@ __getStuff(\'%s\')
 __saveToS3(___lastvalue,\'%s\',\'%s\',\'q\')
 ___lastvalue", jg,bucket,datadir)
                 dbxExecuteCommand(code=monitor
-                                 ,ctx=getOption("querycontext"),displayLog=FALSE,showOutput=FALSE,showCode=FALSE)
+                                 ,ctx=getOption("querycontext")
+                                 ,displayLog=FALSE
+                                 ,showOutput=FALSE
+                                 ,showCode=FALSE)
                 s <- getSavedData(dataloc,"q",verbose)
                 assign("foo",s,env=.GlobalEnv)
                 if(!is.null(s$data)){
