@@ -143,29 +143,34 @@ fromJSON(content(res,as='text'))
 dbxStart <- function(cluster_id
                      , wait = TRUE
                     , token = options("databricks")[[1]]$token
-                    , instance = options("databricks")[[1]]$instance)
+                   , instance = options("databricks")[[1]]$instance
+                    ,verbose=0)
 {
 
 
     if(is.null(token) || is.null(instance)) stop("Must provide a token and instance")
     url <- infuse("https://{{instance}}.cloud.databricks.com/api/2.0/clusters/start",instance=instance)
     body <- list("cluster_id" = as.character(cluster_id))
+    if(verbose>3) print(url)
     res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
                 body = body
               , encode = "json")
     cl <- fromJSON(content(res,as='text'))
+    if(verbose>3) print(cl)
     require(progress)
     pb <- progress_bar$new(format = "Cluster :idx is  :state, elapsed: :elapsed",  clear = FALSE,total=1e7, width = 60)
     if(wait){
         pb$tick(0)
+        if(verbose>4) print(list("cl",cl))
         if(is.null(cl$"error_code")){
             while(TRUE){
                 st <- dbxGet(getOption("databricks")$clusterId)$state
+                if(verbose>4) print(st)
                 pb$tick(token=list(idx=as.character(cluster_id),state=st))
                 if(!is.null(st) && st !='RUNNING') {Sys.sleep(5)} else {break}
             }
         }else{
-            if(grepl("state Running", cl$"message")) return(cl)
+            if(grepl("Running", cl$"message")) return(cl)
             stop(sprintf("problem starting cluster %s", cl$message))
         }
     }

@@ -56,18 +56,27 @@ dbxCtxMake <- function(language='python',instance=options("databricks")[[1]]$ins
 {
   checkOptions(instance, clusterId,user, password)
   url <- infuse("https://{{instance}}.cloud.databricks.com/api/1.2/contexts/create",instance=instance)
+  if(verbose>3) print(url)
   if(verbose)
       cat("Language context being created")
   pyctx<-POST(url,body=list(language=language, clusterId=clusterId)
     ,encode='form'
-    ,authenticate(user,password))
-  pyctxId <- content(pyctx)$id
+     ,authenticate(user,password))
+  pcontent <- content(pyctx)
+  pyctxId <- pcontent$id
+  if(!is.null(pcontent$error))
+      stop(sprintf("ctxmake: %s", pcontent$error))
 
+  if(verbose>4) print(pcontent)
   if(verbose) cat("Query context being created")
   pyctx2<-POST(url,body=list(language=language, clusterId=clusterId)
               ,encode='form'
               ,authenticate(user,password))
-  pyctxId2 <- content(pyctx2)$id
+  pcontent <- content(pyctx)
+  pyctxId2 <- pcontent$id
+  if(verbose>4) print(pyctx2)
+  if(!is.null(pcontent$error))
+      stop(sprintf("ctxmake: %s", pcontent$error))
 
   loglocation <- NULL
   if(!is.null(f <- getOption("databricks")$log)){
