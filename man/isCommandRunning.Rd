@@ -7,7 +7,7 @@
 isCommandRunning(s)
 }
 \arguments{
-\item{ctx}{a context}
+\item{s}{a commandid}
 }
 \description{
 check if context is running

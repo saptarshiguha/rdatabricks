@@ -4,11 +4,13 @@
 \alias{dbxStart}
 \title{Starts a terminated Spark cluster given its id}
 \usage{
-dbxStart(cluster_id, token = options("databricks")[[1]]$token,
+dbxStart(cluster_id, wait = TRUE, token = options("databricks")[[1]]$token,
   instance = options("databricks")[[1]]$instance)
 }
 \arguments{
 \item{cluster_id}{a string}
+
+\item{wait}{if TRUE, wait till cluster starts}
 }
 \value{
 nothing

@@ -154,13 +154,15 @@ dbxStart <- function(cluster_id
                 body = body
               , encode = "json")
     cl <- fromJSON(content(res,as='text'))
+    require(progress)
+    pb <- progress_bar$new(format = "Cluster :idx is  :state, elapsed: :elapsed",  clear = FALSE,total=1e7, width = 60)
     if(wait){
-        message("Waiting:")
+        pb$tick(0)
         if(is.null(cl$"error_code")){
             while(TRUE){
                 st <- dbxGet(getOption("databricks")$clusterId)$state
-                print(st)
-                if(!is.null(st) && st !='RUNNING') {cat(".");Sys.sleep(5)} else {cat("\n");break}
+                pb$tick(token=list(idx=as.character(cluster_id),state=st))
+                if(!is.null(st) && st !='RUNNING') {Sys.sleep(5)} else {break}
             }
         }else{
             if(grepl("state Running", cl$"message")) return(cl)

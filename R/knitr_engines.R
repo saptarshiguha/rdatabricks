@@ -1,166 +1,301 @@
-##' Databricks Python Engine for Knitr
-##'@export
-databricksPythonEngine <- function(options){
-    if(identical(options$eval,FALSE)) return(knitr::engine_output(options, options$code, NULL,NULL))
-    if(is.null(getOption("dbpycontext"))){
-        r <- dbxCtxMake(wait=TRUE)
-    }
-    if(is.null(options$ctx))
-        ctx <- getOption("dbpycontext")
-    else
-        ctx <- options$ctx
-    if (paste(options$code, sep = "", collapse = "") == "")
-        return(knitr::engine_output(options, options$code, NULL, NULL))
-    code <- paste(options$code, sep = "", collapse = "\n")
-    if(!is.null(getOption("databricks")$currentCommand)) {
-        pc <- dbxCmdStatus()
-        if(!identical(pc$status,"Finished")){
-            message(sprintf("Already running command( %s ), with status: %s. You can kill it with dbxCmdCancel('%s') ", pc$id,pc$status,pc$id))
-        }
-    }
-    extra = NULL
-    out <- NULL
-    wait <- options$wait
-    if(is.null(wait)) wait <- 3
-    ## set jobgroup
+
+replace.r.code <- function(code,andOutput,varEnv){
     ## replace code with variables
-    repl <- gregexpr("\\(__REPLACE__[a-zA-z0-9]+\\)",code)[[1]]
-    repl.ml <- attr(repl,"match.length")
-    if(!(length(repl)==1 & repl==-1)){
-        for(i in seq_along(repl)){
-            var0 <- substring(code, repl[i],repl[i]+repl.ml[i]-1)
-            var1 <- strsplit(var0,"__")[[1]][[3]]
-            var1 <- substr(var1,1,nchar(var1)-1)
-            theVar <- deparse(get(var1,envir=if(is.null(options$dbenv)) .GlobalEnv else options$dbenv))
-            code <- gsub(var0, theVar, code,fixed=TRUE)
-            }
+    while(TRUE){
+        repl <- gregexpr("\\(__REPLACE__[a-zA-z0-9]+\\)",code)[[1]]
+        repl.ml <- attr(repl,"match.length")
+        i <- 1
+        if(!(length(repl)==1 & repl[1]==-1)){
+                var0 <- substring(code, repl[i],repl[i]+repl.ml[i]-1)
+                var1 <- strsplit(var0,"__")[[1]][[3]]
+                var1 <- substr(var1,1,nchar(var1)-1)
+                theVar <- deparse(get(var1,envir=varEnv))
+                code <- gsub(var0, theVar, code,fixed=TRUE)
+        }else break
     }
-    if(!identical(options$showme,FALSE)) cat(sprintf("----Code Sent to Databricks Python Context----\n\n%s\n\n-----\n",code))
-    jg <- getOption("currentJobGroup")
-    if(TRUE || is.null(jg)){
-        jg  <- sprintf("sguha %s",digest(runif(1),algo='md5'))
-        options(currentJobGroup = jg)
-    }
-    code <- sprintf("sc.setJobGroup('%s', 'SGuhas work')
-__jg = '%s'
-%s",jg,jg,code)
-    require(digest)
-    tid <- digest(runif(1),algo="md5")
-    if(is.null(f <- getOption("databricks")$log$dataKeyPrefix)){
-        warning("log$data missing,auto data download wont work")
-    }else{
+    if(andOutput)
+        cat(sprintf("----Code Sent to Databricks Python Context----\n%s\n-----\n",code))
+    code
+}
 
-        if(identical(options$autoDownloadObject,TRUE)){
-            bk <- getOption("databricks")$log$bucket
-            datadir <- sprintf("%s/%s",f,tid)
-            ## Modify Code to write output to folder
-            dloc <- sprintf('s3://%s/%s', bk, datadir)
-            if(!identical(options$showOutput,FALSE)) message(sprintf("Useful objects for this run (if any) found at %s", dloc))
-            code = sprintf("
-___lastvalue = exec_then_eval('''
-%s
-''')
-if ___lastvalue is not None:
- _saveToS3(___lastvalue,'%s','%s')
-___lastvalue
-", code,bk,datadir)
-        }
 
-    }
-    if(options$eval){
-        cid3 <- dbxRunCommand(code,ctx=ctx,language='python',wait=wait,quiet=identical(options$showOutput,FALSE),
-                              progress = if(is.null(options$progress)) FALSE else TRUE,
-                              poll.log=if(is.null(options$poll)) TRUE else as.logical(options$poll))
-        if(!is.null(getOption("databricks")$debug)
-           && getOption("databricks")$debug>0){
-            print(cid3)
+getResults <- function(cid,verbose=FALSE,interactiveCall=TRUE){
+    ## cid is returned from status
+    if(identical(cid$results$resultType,"error")){
+        ## Error
+        cause <- cid$results$cause
+        return(list(type='error', x=sprintf("%s\n",cause)))
+    }else if(identical(cid$results$resultType,"image")){
+        ## image
+        system(sprintf("dbfs cp dbfs:/FileStore%s %s/", cid$results$fileName,tempdir()))
+        f <- sprintf("%s/%s",tempdir(),basename(cid$results$fileName))
+        file.copy(f,"~/public_html/tmp/")
+        if(verbose) message(sprinf("wrote %s to ~/public_html/tmp/",f),immediate.=TRUE)
+        if(file.exists("~/imgcat") && interactive()){
+            system(sprintf("~/imgcat %s",f))
         }
-        if(is.character(cid3)) return(cid3)
-        if(!is.null(cid3$status) && cid3$status=="Queued"){
-            warning(sprintf("Command with id: %s is queued,waiting", cid3$id))
-            while(TRUE){
-                ss <- dbxCmdStatus(cid3$id)
-                if(identical("Queued",ss$status)) {Sys.sleep(wait);cat(".")} else {cat("\n");break}
-            }
+        if(interactiveCall){
+            extra <- sapply(f, function(f) knitr::knit_hooks$get("plot")(f, options))
+        out <- cid$results$data
+        return(list(type='image', x=sprintf("~/public_html/tmp/%s",basename(cid$results$fileName))))
         }
-        if(identical(cid3$results$resultType,"error")){
-            (out <- cid3$results$cause)
-            if(identical(options$stopOnError,TRUE)){
-                cat(sprintf("%s\n",out))
-                stop("Error In Python Code")
-            }
-        }else if(identical(cid3$results$resultType,"image")){
-            system(sprintf("dbfs cp dbfs:/FileStore%s %s/", cid3$results$fileName,tempdir()))
-            f <- sprintf("%s/%s",tempdir(),basename(cid3$results$fileName))
-            if(file.exists("~/imgcat") && interactive()){
-                file.copy(f,"~/public_html/tmp/")
-                message(sprintf("viewing %s ", basename(f)))
-                system(sprintf("~/imgcat %s",f))
-            }
-            if(is.null(options$fromEmacs))
-                extra <- sapply(f, function(f) knitr::knit_hooks$get("plot")(f, options))
-            out <- cid3$results$data
-            if(is.null(out)) out <- ""
-        }else if(identical(cid3$results$resultType,"text")){
-            out <- cid3$results$data
-        }
-        if(identical(options$autoDownloadObject,TRUE)){
-            system(sprintf("rm -rf /tmp/jaxir ; aws s3 sync %s/ /tmp/jaxir &>/dev/null",dloc))
-            if(file.exists("/tmp/jaxir/lastobject.feather")){
-                require('feather');require(data.table)
-                assign(".Last.dbx",data.table(read_feather("/tmp/jaxir/lastobject.feather")),envi=.GlobalEnv)
-            }else if(file.exists("/tmp/jaxir/lastobject.json")){
-                require(rjson)
-                assign(".Last.dbx",fromJSON(file="/tmp/jaxir/lastobject.json"),envir=.GlobalEnv)
-            }
-        }
-    }
-    options$engine='python'
-    if(is.null(options$fromEmacs))
-        knitr::engine_output(options, options$code, out,extra)
-    else{
-        if(!identical(options$showOutput,FALSE)) cat(sprintf("\n----Output----\n\n %s\n\n----\n",out))
+    }else if(identical(cid$results$resultType,"text")){
+        out <- cid$results$data
+        return(list(type='text', x=sprintf("%s\n",out)))
+    }else if(identical(cid$status, "Running")){
+        return(list(type='running', x=''))
     }
 }
 
-## ##' Databricks R Engine Knitr
-## ##'@export
-## databricksREngine <- function(options){
-##     ## if(!(!is.null(options$dbx) && options$dbx==TRUE)){
-##     ##     return(getOption("databricksOldPythonEgine")(options))
-##     ## }
-##     if(is.null(getOption("dbpycontext"))){
-##         r <- dbxCtxMake()
-##         while(TRUE){
-##             ctxStats <- dbxCtxStatus(r)
-##             if(isContextRunning(ctxStats)) break
-##         }
-##         options(dbpycontext=r)
-##     }
-##     ctx <- getOption("dbpycontext")
-##     if (paste(options$code, sep = "", collapse = "") == "")
-##         return(knitr::engine_output(options, options$code, NULL, NULL))
-##     code <- paste(options$code, sep = "", collapse = "\n")
-##     extra = NULL
-##     out <- NULL
-##     if(options$eval){
-##         cid3 <- dbxRunCommand(code,ctx=ctx,language='r',wait=3)
-##         if(!is.null(getOption("databricks")$debug)
-##            && getOption("databricks")$debug>0){
-##             print(cid3)
-##         }
-##     if(cid3$results$resultType=="error"){
-##         (out <- cid3$results$cause)
-##     }else if(cid3$results$resultType=="image"){
-##         system(sprintf("dbfs cp dbfs:/FileStore%s %s/", cid3$results$fileName,tempdir()))
-##         f <- sprintf("%s/%s",tempdir(),basename(cid3$results$fileName))
-##         extra <- sapply(f, function(f) knitr::knit_hooks$get("plot")(f, options))
-##     out <- cid3$results$data
-##         if(is.null(out)) out <- ""
-##     }else if(cid3$results$resultType=="text"){
-##         out <- cid3$results$data
-##     }
-##     }
-##     options$engine='R'
-##     knitr::engine_output(options, options$code, out,extra)
-## }
+ifn <- function(s,f) if(is.null(s)) f else s
+##' @export
+dbxCancelAllJobs <- function(...){
+    ## code is executed on the 'command' context
+    options <- list(...)
+    options$ctx <- getOption("querycontext")
+    options$code <- "sc.cancelAllJobs()"
+    options$showOutput <- FALSE
+    options$showCode <- FALSE
+    options$displayLog <- FALSE
+    invisible(do.call(dbxExecuteCommand,options))
+}
+
+
+getSavedData <- function(dataloc,p,verbose){
+    gets <- sprintf("rm -rf /tmp/jaxir ; aws s3 sync %s/ /tmp/jaxir &>/dev/null",dataloc)
+    if(verbose) print(gets)
+    system(gets)
+    if(file.exists(sprintf("/tmp/jaxir/%s_lastobject.feather",p))){
+        require(feather)
+        require(data.table)
+        data.table(read_feather(sprintf("/tmp/jaxir/%s_lastobject.feather",p)))
+    }else if(file.exists(sprintf("/tmp/jaxir/%s_lastobject.json",p))){
+        require(rjson)
+       fromJSON(file=sprintf("/tmp/jaxir/%s_lastobject.json",p))
+    }
+}
+    
+##' @export
+dbxExecuteCommand <- function(...){
+    options <- list(...)
+    dbo <- getOption("databricks")
+    ctx <- ifn(options$ctx,getOption("dbpycontext"))
+    instance <- ifn(options$instance,dbo$instance)
+    clusterId <- ifn(options$clusterId,dbo$clusterId)
+    user <- ifn(options$user,dbo$user)
+    password <- ifn(options$password,dbo$password)
+
+    ##main options
+    ## code
+    ## showProg TRUE
+    ## varEnv GlobalEnv
+    ## stopOnError stop
+    ## verbose 0
+    ## displayLog TRUE
+    ## autoSave FALSE
+    ## interactiveCall TRUE
+    ## showCode TRUE
+    ## showOutput TRUE
+    ## setJobGroup NULL
+    
+    code <- options$code
+    if(is.null(code)) stop("provided code is missing!")
+
+    checkOptions(code,ctx,instance, clusterId,user, password)
+
+    ## show progress bars?
+    showProg <- ifn(options$progress,FALSE)
+    varEnv <- ifn(options$varEnv, .GlobalEnv)
+    stopOnError <- ifn(options$stopOnError,TRUE)
+    if(stopOnError)
+        stopOnError <- stop
+    else
+        stopOnError <- function(s) warning(s, immediate.=TRUE)
+
+    verbose <- ifn(options$verbose,0)
+
+    displayLog <- ifn(options$displayLog,TRUE)
+
+    autoSave <- ifn(options$autoSave,FALSE)
+
+    interactiveCall <- ifn(options$interactiveCall,TRUE)
+
+    showCode <- ifn(options$showCode,TRUE)
+
+    showOutput <- ifn(options$showOutput,TRUE)
+    ## Almost every Code Sent to Python has a JobGroup associated with it
+    ## Even if it's not spark code
+    jobgroup <- ifn(options$setJobGroup,FALSE)
+    if(jobgroup){
+        jg  <- sprintf("sguha %s",digest(runif(1),algo='md5'))
+        code <- sprintf("\n%s\n%s",sprintf("sc.setJobGroup('%s', 'Saptarshi Guha')",jg),code)
+    }
+
+    ## replace 'macro's in code
+    code <- replace.r.code(code, showCode,varEnv)
+
+    ## Show log output during code?
+    dbxExecuteCommand(code=sprintf("hdlr.clear()"),displayLog=FALSE,showOutput=FALSE,showCode=FALSE)
+    if(displayLog){
+        s3location <- getOption("databricks")$log$location
+        tfile <- tempfile(pattern='dbx')
+        showLogs <- function(){
+            currentlines <- ""
+            function(){
+                if(!is.null(s3location)){
+                    oo <- sprintf("aws s3 cp s3://%s %s > /dev/null 2>&1", s3location, tfile)
+                    tryCatch({
+                        system(oo)
+                        if(file.exists(tfile)){
+                            newlines <- readLines(tfile)
+                            extra <- setdiff(newlines, currentlines)
+                            mm <- paste(extra, collapse="\n")
+                            if(!mm=="")
+                                message(mm)
+                            currentlines <<- newlines
+                        }
+                    },error=function(e) stop(as.character(e)))
+                }
+            }
+        }
+        show.logger <- showLogs()
+    }else show.logger <- function() {}
+    
+    
+    ## Automatically save output assuming the end is DataFrame or Dict
+    if(autoSave){
+        require(digest)
+        tid <- digest(runif(1),algo="md5")
+        f <- getOption("databricks")$log$dataKeyPrefix
+        if(is.null(f)){
+            stop("getOption('databricks')$log$dataKeyPrefix missing,auto data download wont work")
+        }else{
+            bucket <- getOption("databricks")$log$bucket
+            datadir <- sprintf("%s/%s",f,tid)
+            dataloc <- sprintf('s3://%s/%s', bucket, datadir)
+            code = sprintf("
+___lastvalue = __exec_then_eval('''%s''')
+__saveToS3(___lastvalue,\"%s\",\"%s\",\"p\")
+___lastvalue", code,bucket,datadir)
+        }
+    }
+
+    ## And now we have the code! Lets run this code
+    ## if autoSave is TRUE ==> objects will be saved
+    ## if displayLog is TRUE ==> logs will be shown
+    ## if progress is TRUE ==> show progress bars (nuanced)
+
+    url <- infuse("https://{{instance}}.cloud.databricks.com/api/1.2/commands/execute",instance=instance)
+    if(verbose>=2) cat(code)
+    commandUrl<-POST(url
+                    ,body=list(language='python'
+                              ,clusterId=clusterId
+                              ,contextId=ctx
+                              ,command=code)
+                    ,encode='form'
+                    ,authenticate(user,password))
+    if( !is.null(content(commandUrl)$error))
+        stop(sprintf("rdatabricks: %s\nYou might want to just call dbctx()",content(commandUrl)$error))
+    commandCtx <- content(commandUrl)$id
+
+    ## Get Status of Command before we get infos and progress
+    status <- dbxCmdStatus(commandCtx,ctx,instance,clusterId,user,password)
+    
+    if (status$status=='Queued'){
+        warning("There is job already running, this won't run till that finishes. Call dbxCancelAllJobs() or wait")
+    }
+    
+    ## Since the command is not queue we should move to the end
+    if(showProg){
+        require(progress)
+        pb <- progress_bar$new(format = "Elapsed :elapsed Job: :job Stages: :nstage Names :name [:bar] :percent eta: :eta"
+                            ,  clear = FALSE ,total=100, width = 100)
+    }
+    while(TRUE){
+        statusResult <- getResults(status, verbose=verbose, interactiveCall=interactiveCall)
+        ## Show logs
+        show.logger()
+        
+        if(statusResult$type=='error'){
+            stopOnError(sprintf("%s\nPython Error\n",status$results$cause))
+            break
+        }else if(isCommandRunning(status)){
+            ## use the command context to query these since the main one has something running
+            if(showProg){
+                if(!autoSave) stop("Progress monitoring of jobs requires autoSave=TRUE")
+                monitor = sprintf("
+___lastvalue = __exec_then_eval('''
+__getStuff(\'%s\')
+''')
+__saveToS3(___lastvalue,\'%s\',\'%s\',\'q\')
+___lastvalue", jg,bucket,datadir)
+                dbxExecuteCommand(code=monitor
+                                 ,ctx=getOption("querycontext"),displayLog=FALSE,showOutput=FALSE,showCode=FALSE)
+                s <- getSavedData(dataloc,"q",verbose)
+                assign("foo",s,env=.GlobalEnv)
+                if(!is.null(s$data)){
+                    s1 <- rbindlist(lapply(s$data, function(l){
+                        as.data.table(l)
+                    }))[, "jobid":=s$jobid,][order(id),][, c("jobid","id","name","ntasks","natasks","nctasks","nftasks"),with=FALSE]
+                    s1 <- s1[, "progress":=round(nctasks/ntasks,2)][,'time':=s$t][,]
+                    nprogress <- sum(s1$ntasks*s1$progress)/sum(s1$ntasks)
+                    active <- s1[, sum(natasks>0)]
+                    whichName <- s1[natasks>0, paste( unique(name),sep=" ",collapse="/")]
+                    pb$update(nprogress,tokens = list(job=s1$jobid[1],nstage = nrow(s1),name=whichName))
+                }else{
+                    pb$tick(1/1.0e6,token=list(job='', nstage=0, name=''))
+                }
+                Sys.sleep(1)
+            }
+        }else if(isCommandDone(status)){
+            break
+        }
+        status <- dbxCmdStatus(commandCtx,ctx,instance,clusterId,user,password)
+    }
+
+    
+    ## Wrap up: download any objects created
+    assign(".Last.db",NULL,envi=.GlobalEnv)
+    if(autoSave){
+        res <- getSavedData(dataloc,"p",verbose)
+        assign(".Last.db",res,envir=.GlobalEnv)
+    }
+
+    if(showOutput){
+        cat(statusResult$x)
+    }else{
+        return(statusResult)
+    }
+}
+
+databricksPythonEngine <- function(options){
+    ## Do not run anything
+    if(identical(options$eval,FALSE))
+        return(knitr::engine_output(options, options$code, NULL,NULL))
+    ctx <- options$ctx
+    ## essentially no code! short-ciruit
+    if (paste(options$code, sep = "", collapse = "") == "")
+        return(knitr::engine_output(options, options$code, NULL, NULL))
+    ## finally we have the code
+    code <- paste(options$code, sep = "", collapse = "\n")
+    options$code <- code
+    extra <- NULL
+    out <- NULL
+    options$showCode <- TRUE
+    options$autoSave <- TRUE
+    options$showOutput <- FALSE
+    cid3Results <- do.call(dbxExecuteCommand, options)
+    options$engine <- 'python'
+    if(is.null(options$interactiveCall))
+        knitr::engine_output(options, options$code, cid3Results$x,extra)
+}
+
+
+
+
+
+
+
+
+
+

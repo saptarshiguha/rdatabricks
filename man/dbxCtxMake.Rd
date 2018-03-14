@@ -5,13 +5,15 @@
 \title{Create a Remote Language Context}
 \usage{
 dbxCtxMake(language = "python",
-  instance = options("databricks")[[1]]$instance,
-  clusterId = options("databricks")[[1]]$clusterId,
+  instance = options("databricks")[[1]]$instance, wait = TRUE,
+  verbose = FALSE, clusterId = options("databricks")[[1]]$clusterId,
   user = options("databricks")[[1]]$user,
   password = options("databricks")[[1]]$password)
 }
 \arguments{
 \item{instance}{is the instance of databricks}
+
+\item{wait}{should i wait for context to start?}
 
 \item{clusterId}{is the clusterId you're working with}
 
@@ -20,6 +22,8 @@ dbxCtxMake(language = "python",
 \item{password}{your password}
 
 \item{the}{language context}
+
+\item{private}{should it modify options?}
 }
 \value{
 a context object
