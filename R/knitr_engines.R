@@ -30,14 +30,14 @@ getResults <- function(cid,verbose=FALSE,interactiveCall=TRUE){
         system(sprintf("dbfs cp dbfs:/FileStore%s %s/", cid$results$fileName,tempdir()))
         f <- sprintf("%s/%s",tempdir(),basename(cid$results$fileName))
         file.copy(f,"~/public_html/tmp/")
-        if(verbose) message(sprinf("wrote %s to ~/public_html/tmp/",f),immediate.=TRUE)
+        if(verbose) message(sprinf("wrote %s to ",f))
         if(file.exists("~/imgcat") && interactive()){
             system(sprintf("~/imgcat %s",f))
         }
         if(interactiveCall){
             extra <- sapply(f, function(f) knitr::knit_hooks$get("plot")(f, options))
         out <- cid$results$data
-        return(list(type='image', x=sprintf("~/public_html/tmp/%s",basename(cid$results$fileName))))
+        return(list(type='image', x=sprintf("%s/%s",ifn(getOption("databricks")$imgdump,'NA'),basename(cid$results$fileName))))
         }
     }else if(identical(cid$results$resultType,"text")){
         out <- cid$results$data
@@ -283,6 +283,9 @@ databricksPythonEngine <- function(options){
     options$showCode <- TRUE
     options$autoSave <- TRUE
     options$showOutput <- FALSE
+    options$progress <- TRUE
+    options$setJobGroup <- TRUE
+    options$autoSave <- TRUE
     cid3Results <- do.call(dbxExecuteCommand, options)
     options$engine <- 'python'
     if(is.null(options$interactiveCall))
