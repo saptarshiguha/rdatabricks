@@ -54,7 +54,16 @@ dbxCtxMake <- function(language='python',instance=options("databricks")[[1]]$ins
                       ,user=options("databricks")[[1]]$user
                       ,password=options("databricks")[[1]]$password)
 {
-  checkOptions(instance, clusterId,user, password)
+
+    checkOptions(instance, clusterId,user, password)
+    ## NEVER ALLOW MORE THAN One
+    ## ideally i would have created environments containing these attributes
+    ## ie. environment(lancontext,cmdcontext,instance, clusterid, user, password)
+    ## with a finalizder that would destroy both contexts 
+    ## and added a finalzer to delete them when objects go out of scope ...
+    ## which would mean a big chunk rewrite ...
+    ## no time now.
+    dbxCtxDestroy(NULL)
   url <- infuse("https://{{instance}}.cloud.databricks.com/api/1.2/contexts/create",instance=instance)
   if(verbose>3) print(url)
   if(verbose)
@@ -100,12 +109,22 @@ dbxCtxMake <- function(language='python',instance=options("databricks")[[1]]$ins
       if(language %in% c('R','r')) options(dbrcontext=pyctxId)
       options(querycontext=pyctxId2)
   }
-
-  allcontexts <- getOption("dbctxlist")
-  if(is.null(allcontexts)) allcontexts <- list()
-  allcontexts[[ pyctxId ]] <- list(ctx=pyctxId, q=pyctxId2)
-  options(dbctxlist = allcontexts)
-  pyctxId
+    allcontexts <- getOption("dbctxlist")
+    if(is.null(allcontexts)) allcontexts <- new.env()
+    allcontexts[[ "__info" ]] = list(instance=instance,
+                                     clusterId=clusterId,
+                                     user=user,password=password
+                                    ,verbose=verbose)
+    reg.finalizer(allcontexts, function(e){
+        if(!is.null(e)){
+            p <- e$"__info"
+            e$"__info" <- NULL
+            rdatabricks:::dbxCtxDestroy(NULL,p$instance,p$clusterId,p$user,p$password,3)
+        }
+    },onexit=TRUE) 
+    allcontexts[[ pyctxId ]] <- list(ctx=pyctxId, q=pyctxId2)
+    options(dbctxlist = allcontexts)
+    pyctxId
 }
   
 ##' Get Status of a Context>
@@ -145,30 +164,36 @@ dbxCtxDestroy <- function(ctx=NULL
                     ,user=options("databricks")[[1]]$user
                     ,password=options("databricks")[[1]]$password,verbose=0)
 {
-    .des <- function(ctx,instance, clusterId,user,password){
+    .des <- function(ctx,instance, clusterId,user,password,noup=FALSE){
         checkOptions(instance, clusterId,user, password)
         url <- infuse("https://{{instance}}.cloud.databricks.com/api/1.2/contexts/destroy",instance=instance)
         ctxDestroyCall<-POST(url,body=list(clusterId=clusterId,contextId=ctx)
                             ,encode='form'
                             ,authenticate(user,password))
         ctxDestroy <- content(ctxDestroyCall)
-        allcontexts <- getOption("dbctxlist")
-        allcontexts[[ ctx ]] <- NULL
-        options(dbctxlist = allcontexts)
+        if(!noup){
+            allcontexts <- getOption("dbctxlist")
+            allcontexts[[ ctx ]] <- NULL
+            options(dbctxlist = allcontexts)
+        }
         ctxDestroy
     }
     if(!is.null(ctx)){
         .des(ctx,instance, clusterId, user,password)
     }else{
         allcontexts <- getOption("dbctxlist")
-        for(a in allcontexts){
-            if(verbose>2) print(sprintf("destroying %s, %s", a[[1]],a[[2]]))
-            .des(a[[1]],instance, clusterId,user,password)
-            .des(a[[2]],instance, clusterId,user,password)
+        if(!is.null(allcontexts)){
+            for(i in ls(allcontexts)){
+                a <- allcontexts[[ i ]]
+                if(verbose>2) print(sprintf("destroying %s, %s", a[[1]],a[[2]]))
+                .des(a[[1]],instance, clusterId,user,password,noup=TRUE)
+                .des(a[[2]],instance, clusterId,user,password,noup=TRUE)
+            }
+            options(querycontext=NULL)
+            options(dbpycontext=NULL)
+            options(dbrcontext=NULL)
+            options(dbctxlist=NULL)
         }
-        options(querycontext=NULL)
-        options(dbpycontext=NULL)
-        options(dbrcontext=NULL)
     }
 }
 
