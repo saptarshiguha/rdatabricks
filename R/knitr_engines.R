@@ -295,7 +295,9 @@ databricksPythonEngine <- function(options){
     cid3Results <- do.call(dbxExecuteCommand, options)
     options$engine <- 'python'
     if(TRUE || is.null(options$interactiveCall)){
-        knitr::engine_output(options, options$code, ifn(cid3Results$x,""),cid3Results$extra)
+        o <- ifn(cid3Results$x,"")
+        if(identical('image',cid3Results$type)) o <- ""
+        knitr::engine_output(options, options$code,o ,cid3Results$extra)
     }
 }
 
