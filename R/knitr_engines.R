@@ -169,22 +169,22 @@ dbxExecuteCommand <- function(...){
     }else show.logger <- function() {}
     
     ## Automatically save output assuming the end is DataFrame or Dict
+    require(digest)
+    tid <- digest(runif(1),algo="md5")
+    f <- getOption("databricks")$log$dataKeyPrefix
+    if(is.null(f) && (showProg || autoSave)){
+        stop("getOption('databricks')$log$dataKeyPrefix missing,auto data download(needed by autoSave or Progress) wont work")
+    }
+    bucket <- getOption("databricks")$log$bucket
+    datadir <- sprintf("%s/%s",f,tid)
+    dataloc <- sprintf('s3://%s/%s', bucket, datadir)
     if(autoSave){
-        require(digest)
-        tid <- digest(runif(1),algo="md5")
-        f <- getOption("databricks")$log$dataKeyPrefix
-        if(is.null(f)){
-            stop("getOption('databricks')$log$dataKeyPrefix missing,auto data download wont work")
-        }else{
-            bucket <- getOption("databricks")$log$bucket
-            datadir <- sprintf("%s/%s",f,tid)
-            dataloc <- sprintf('s3://%s/%s', bucket, datadir)
-            code = sprintf("
+        code = sprintf("
 ___lastvalue = __exec_then_eval('''%s''')
 __saveToS3(___lastvalue,\"%s\",\"%s\",\"p\")
 ___lastvalue", code,bucket,datadir)
-        }
     }
+
 
     ## And now we have the code! Lets run this code
     ## if autoSave is TRUE ==> objects will be saved
@@ -219,7 +219,7 @@ ___lastvalue", code,bucket,datadir)
         }else if(isCommandRunning(status)){
             ## use the command context to query these since the main one has something running
             if(showProg){
-                if(!autoSave) stop("Progress monitoring of jobs requires autoSave=TRUE")
+                #if(!autoSave) stop("Progress monitoring of jobs requires autoSave=TRUE")
                 monitor = sprintf("
 ___lastvalue = __exec_then_eval('''
 __getStuff(\'%s\')
@@ -285,14 +285,17 @@ databricksPythonEngine <- function(options){
     out <- NULL
     ox <- options
     options$showCode <- TRUE
-    if(is.null(options$autoSave)) options$autoSave <- TRUE
+    if(is.null(options$autoSave)) options$autoSave <- FALSE ##default
+    if(!is.null(options$storein) && is.character(options$storein)){
+        options$autoSave <- TRUE
+        }
     options$showOutput <- FALSE
     options$progress <- TRUE
     options$setJobGroup <- TRUE
     cid3Results <- do.call(dbxExecuteCommand, options)
     options$engine <- 'python'
     if(TRUE || is.null(options$interactiveCall)){
-        knitr::engine_output(options, options$code, ifn(cid3Results$out,""),cid3Results$extra)
+        knitr::engine_output(options, options$code, ifn(cid3Results$x,""),cid3Results$extra)
     }
 }
 
