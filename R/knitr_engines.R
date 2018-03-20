@@ -9,7 +9,7 @@ replace.r.code <- function(code,andOutput,varEnv){
                 var0 <- substring(code, repl[i],repl[i]+repl.ml[i]-1)
                 var1 <- strsplit(var0,"__")[[1]][[3]]
                 var1 <- substr(var1,1,nchar(var1)-1)
-                theVar <- deparse(get(var1,envir=varEnv))
+                theVar <- (get(var1,envir=varEnv))
                 code <- gsub(var0, theVar, code,fixed=TRUE)
         }else break
     }
@@ -19,7 +19,7 @@ replace.r.code <- function(code,andOutput,varEnv){
 }
 
 
-getResults <- function(cid,verbose=FALSE,interactiveCall=TRUE){
+getResults <- function(cid,verbose=FALSE,options,interactiveCall=TRUE){
     ## cid is returned from status
     if(identical(cid$results$resultType,"error")){
         ## Error
@@ -27,17 +27,18 @@ getResults <- function(cid,verbose=FALSE,interactiveCall=TRUE){
         return(list(type='error', x=sprintf("%s\n",cause)))
     }else if(identical(cid$results$resultType,"image")){
         ## image
-        system(sprintf("dbfs cp dbfs:/FileStore%s %s/", cid$results$fileName,tempdir()))
-        f <- sprintf("%s/%s",tempdir(),basename(cid$results$fileName))
+        system(sprintf("dbfs cp dbfs:/FileStore%s ./", cid$results$fileName,tempdir()))
+        f <- sprintf("./%s",basename(cid$results$fileName)) ##tempdir was 1st param
         file.copy(f,"~/public_html/tmp/")
         if(verbose) message(sprinf("wrote %s to ",f))
         if(file.exists("~/imgcat") && interactive()){
             system(sprintf("~/imgcat %s",f))
         }
-        if(interactiveCall){
+        if(TRUE || interactiveCall){
             extra <- sapply(f, function(f) knitr::knit_hooks$get("plot")(f, options))
-        out <- cid$results$data
-        return(list(type='image', x=sprintf("%s/%s",ifn(getOption("databricks")$imgdump,'NA'),basename(cid$results$fileName))))
+            out <- cid$results$data
+            return(list(type='image', x=sprintf("%s/%s",ifn(getOption("databricks")$imgdump,'NA'),basename(cid$results$fileName))
+                        ,extra=extra,out=out))
         }
     }else if(identical(cid$results$resultType,"text")){
         out <- cid$results$data
@@ -99,10 +100,10 @@ dbxExecuteCommand <- function(...){
     ## setJobGroup NULL
     
     code <- options$code
+    rcode <- code
     if(is.null(code)) stop("provided code is missing!")
 
     checkOptions(code,ctx,instance, clusterId,user, password)
-
     ## show progress bars?
     showProg <- ifn(options$progress,FALSE)
     varEnv <- ifn(options$varEnv, .GlobalEnv)
@@ -117,12 +118,13 @@ dbxExecuteCommand <- function(...){
     displayLog <- ifn(options$displayLog,TRUE)
 
     autoSave <- ifn(options$autoSave,FALSE)
-
+    
     interactiveCall <- ifn(options$interactiveCall,TRUE)
 
     showCode <- ifn(options$showCode,TRUE)
 
     showOutput <- ifn(options$showOutput,TRUE)
+
     ## Almost every Code Sent to Python has a JobGroup associated with it
     ## Even if it's not spark code
     jobgroup <- ifn(options$setJobGroup,FALSE)
@@ -166,7 +168,6 @@ dbxExecuteCommand <- function(...){
         show.logger <- showLogs()
     }else show.logger <- function() {}
     
-    
     ## Automatically save output assuming the end is DataFrame or Dict
     if(autoSave){
         require(digest)
@@ -197,7 +198,7 @@ ___lastvalue", code,bucket,datadir)
 
     ## Get Status of Command before we get infos and progress
     status <- dbxCmdStatus(commandCtx,ctx,instance,clusterId,user,password)
-    
+
     if (status$status=='Queued'){
         warning("There is job already running, this won't run till that finishes. Call dbxCancelAllJobs() or wait")
     }
@@ -209,9 +210,9 @@ ___lastvalue", code,bucket,datadir)
                             ,  clear = FALSE ,total=100, width = 100)
     }
     while(TRUE){
-        statusResult <- getResults(status, verbose=verbose, interactiveCall=interactiveCall)
+
+        statusResult <- getResults(status, verbose=verbose, options=options,interactiveCall=interactiveCall)
         show.logger()
-        
         if(statusResult$type=='error'){
             stopOnError(sprintf("%s\nPython Error\n",status$results$cause))
             break
@@ -251,15 +252,14 @@ ___lastvalue", jg,bucket,datadir)
         }
         status <- dbxCmdStatus(commandCtx,ctx,instance,clusterId,user,password)
     }
-
-    
     ## Wrap up: download any objects created
     assign(".Last.db",NULL,envi=.GlobalEnv)
     if(autoSave){
         res <- getSavedData(dataloc,"p",verbose)
         assign(".Last.db",res,envir=.GlobalEnv)
     }
-
+    statusResult$givenOpts = options
+    statusResult$code2 = code
     if(showOutput){
         cat(statusResult$x)
     }else{
@@ -280,23 +280,18 @@ databricksPythonEngine <- function(options){
     options$code <- code
     extra <- NULL
     out <- NULL
+    ox <- options
     options$showCode <- TRUE
-    options$autoSave <- TRUE
+    if(is.null(options$autoSave)) options$autoSave <- TRUE
     options$showOutput <- FALSE
     options$progress <- TRUE
     options$setJobGroup <- TRUE
-    options$autoSave <- TRUE
     cid3Results <- do.call(dbxExecuteCommand, options)
     options$engine <- 'python'
-    if(is.null(options$interactiveCall))
-        knitr::engine_output(options, options$code, cid3Results$x,extra)
+    if(TRUE || is.null(options$interactiveCall)){
+        knitr::engine_output(options, options$code, ifn(cid3Results$out,""),cid3Results$extra)
+    }
 }
-
-
-
-
-
-
 
 
 

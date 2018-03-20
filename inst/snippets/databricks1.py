@@ -13,9 +13,9 @@ spark.conf.set('spark.databricks.queryWatchdog.maxHivePartitions',32766)
 ## call log.info(text)
 ## and they will be displayed 
 log = logging.getLogger("db")
-hdlr = S3LogHandler(bucket=(__REPLACE__BUCKET),
-                    prefix=(__REPLACE__PREFIX),
-                    contextId = (__REPLACE__CONTEXT))
+hdlr = S3LogHandler(bucket='(__REPLACE__BUCKET)',
+                    prefix='(__REPLACE__PREFIX)',
+                    contextId = '(__REPLACE__CONTEXT)')
 formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
 hdlr.setFormatter(formatter)
 log.addHandler(hdlr)
