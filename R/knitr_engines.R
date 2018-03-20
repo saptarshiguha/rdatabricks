@@ -257,6 +257,9 @@ ___lastvalue", jg,bucket,datadir)
     if(autoSave){
         res <- getSavedData(dataloc,"p",verbose)
         assign(".Last.db",res,envir=.GlobalEnv)
+        if(!is.null(options$storein)){
+            assign(as.character(options$storein),res,envir=.GlobalEnv)
+        }
     }
     statusResult$givenOpts = options
     statusResult$code2 = code
