@@ -207,13 +207,14 @@ ___lastvalue", code,bucket,datadir)
     if(showProg){
         require(progress)
         pb <- progress_bar$new(format = "Elapsed :elapsed Job: :job Stages: :nstage Names :name [:bar] :percent eta: :eta"
-                            ,  clear = FALSE ,total=100, width = 100)
+                            ,  clear = FALSE ,total=100, width = 120)
     }
     while(TRUE){
 
         statusResult <- getResults(status, verbose=verbose, options=options,interactiveCall=interactiveCall)
         show.logger()
         if(statusResult$type=='error'){
+            assign(".Last.dberr",list(status,statusResult),env=.GlobalEnv)
             stopOnError(sprintf("%s\nPython Error\n",status$results$cause))
             break
         }else if(isCommandRunning(status)){
@@ -238,12 +239,15 @@ ___lastvalue", jg,bucket,datadir)
                         as.data.table(l)
                     }))[, "jobid":=s$jobid,][order(id),][, c("jobid","id","name","ntasks","natasks","nctasks","nftasks"),with=FALSE]
                     s1 <- s1[, "progress":=round(nctasks/ntasks,2)][,'time':=s$t][,]
-                    nprogress <- sum(s1$ntasks*s1$progress)/sum(s1$ntasks)
+                    nprogress <- min(1,sum(s1$ntasks*s1$progress)/sum(s1$ntasks))
                     active <- s1[, sum(natasks>0)]
                     whichName <- s1[natasks>0, paste( unique(name),sep=" ",collapse="/")]
+
+                 if(!pb$finished)
                     pb$update(nprogress,tokens = list(job=s1$jobid[1],nstage = nrow(s1),name=whichName))
                 }else{
-                    pb$tick(1/1.0e6,token=list(job='', nstage=0, name=''))
+                    if(!pb$finished)
+                        pb$tick(1/1.0e6,token=list(job='', nstage=0, name=''))
                 }
                 Sys.sleep(1)
             }

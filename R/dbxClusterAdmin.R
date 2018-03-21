@@ -170,7 +170,7 @@ dbxStart <- function(cluster_id
                 if(!is.null(st) && st !='RUNNING') {Sys.sleep(5)} else {    cat("\n");break}
             }
         }else{
-            if(grepl("Running", cl$"message")) return(cl)
+            if(grepl("Running", cl$"message")) {Sys.sleep(3);return(cl)}
             stop(sprintf("problem starting cluster %s", cl$message))
         }
     }

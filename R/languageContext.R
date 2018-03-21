@@ -119,7 +119,7 @@ dbxCtxMake <- function(language='python',instance=options("databricks")[[1]]$ins
         if(!is.null(e)){
             p <- e$"__info"
             e$"__info" <- NULL
-            rdatabricks:::dbxCtxDestroy(NULL,p$instance,p$clusterId,p$user,p$password,3)
+            #rdatabricks:::dbxCtxDestroy(NULL,p$instance,p$clusterId,p$user,p$password,3)
         }
     },onexit=TRUE) 
     allcontexts[[ pyctxId ]] <- list(ctx=pyctxId, q=pyctxId2)

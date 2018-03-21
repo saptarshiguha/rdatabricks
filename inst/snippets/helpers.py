@@ -36,7 +36,18 @@ def __saveToS3(obj,bucket,s3path,prefix=""):
         k.key = "{}/{}".format(s3path,lastobject)
         k.set_contents_from_filename("/tmp/{}".format(lastobject))           
         
+def __cps3(bucket, path,infile):
+  import boto
+  from boto.s3.connection import S3Connection
+  conn = S3Connection()
+  from boto.s3.key import Key
+  c = boto.connect_s3()
+  b = c.get_bucket(bucket)
+  k = Key(b)
+  k.key = path #'sguha/tmp/pydbx-logger.txt'
+  k.set_contents_from_filename(infile)
 
+  
 def __getStuff(oo):
     from time import gmtime, strftime
     v=sc.statusTracker().getJobIdsForGroup(oo)
