@@ -258,12 +258,14 @@ dbxDelete <- function(cluster_id
 
 
     if(is.null(token) || is.null(instance)) stop("Must provide a token and instance")
+    dbxCtxDestroy(NULL,instance=instance, clusterId=cluster_id)
     url <- infuse("https://{{instance}}.cloud.databricks.com/api/2.0/clusters/delete",instance=instance)
     body <- list("cluster_id" = as.character(cluster_id))
     res <- POST(url, add_headers(Authorization= infuse("Bearer {{token}}",token=token)),
                 body = body
               , encode = "json")
     fromJSON(content(res,as='text'))
+    
 #   r<- tryParsing(res)
 #   if(r$status) r$content else stop(r$content)
 }
