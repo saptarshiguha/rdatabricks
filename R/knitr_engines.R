@@ -243,7 +243,7 @@ ___lastvalue", jg,bucket,datadir)
                     active <- s1[, sum(natasks>0)]
                     whichName <- s1[natasks>0, paste( unique(name),sep=" ",collapse="/")]
 
-                 if(!pb$finished)
+                 if(!pb$finished && !is.na(nprogress))
                     pb$update(nprogress,tokens = list(job=s1$jobid[1],nstage = nrow(s1),name=whichName))
                 }else{
                     if(!pb$finished)
