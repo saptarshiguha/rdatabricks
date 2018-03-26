@@ -167,6 +167,24 @@ dbxExecuteCommand <- function(...){
         }
         show.logger <- showLogs()
     }else show.logger <- function() {}
+
+    ## code
+    ## showProg TRUE
+    ## varEnv GlobalEnv
+    ## stopOnError stop
+    ## verbose 0
+    ## displayLog TRUE
+    ## autoSave FALSE
+    ## interactiveCall TRUE
+    ## showCode TRUE
+    ## showOutput TRUE
+    ## setJobGroup NULL
+    
+    if(verbose>5){
+        print(list(code=code,showProg=showProg,varEnv=varEnv, stopOnError=stopOnError, verbose=verbose,
+                   displayLog=displayLog, autoSave=autoSave, interact=interactiveCall,showCode=showCode,
+                   showOutput=showOutput, setJobGroup=options$setJobGroup))
+    }
     
     ## Automatically save output assuming the end is DataFrame or Dict
     require(digest)
@@ -182,7 +200,9 @@ dbxExecuteCommand <- function(...){
         code = sprintf("
 ___lastvalue = __exec_then_eval('''%s''')
 __saveToS3(___lastvalue,\"%s\",\"%s\",\"p\")
-___lastvalue", code,bucket,datadir)
+___lastvalue
+", code,bucket,datadir)
+        if(verbose>5) print(code)
     }
 
 
@@ -206,7 +226,7 @@ ___lastvalue", code,bucket,datadir)
     ## Since the command is not queue we should move to the end
     if(showProg){
         require(progress)
-        pb <- progress_bar$new(format = "Elapsed :elapsed Job: :job Stages: :nstage Names :name [:bar] :percent eta: :eta"
+        pb <- progress_bar$new(format = "Elapsed :elapsed Job: :job Stages: :ndone/:nstage Names :name [:bar] :percent eta: :eta"
                             ,  clear = FALSE ,total=100, width = 120)
     }
     while(TRUE){
@@ -242,12 +262,12 @@ ___lastvalue", jg,bucket,datadir)
                     nprogress <- min(1,sum(s1$ntasks*s1$progress)/sum(s1$ntasks))
                     active <- s1[, sum(natasks>0)]
                     whichName <- s1[natasks>0, paste( unique(name),sep=" ",collapse="/")]
-
+                    whichName <- sprintf("%s...",substr(whichName,1, min(30,nchar(whichName))))
                  if(!pb$finished && !is.na(nprogress))
-                    pb$update(nprogress,tokens = list(job=s1$jobid[1],nstage = nrow(s1),name=whichName))
+                    pb$update(nprogress,tokens = list(job=s1$jobid[1],ndone=s1[,sum(nctasks==ntasks)],nstage = nrow(s1),name=whichName))
                 }else{
                     if(!pb$finished)
-                        pb$tick(1/1.0e6,token=list(job='', nstage=0, name=''))
+                        pb$tick(1/1.0e6,token=list(job='',ndone=0, nstage=0, name=''))
                 }
                 Sys.sleep(1)
             }

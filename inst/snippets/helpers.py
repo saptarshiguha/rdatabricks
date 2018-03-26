@@ -1,4 +1,6 @@
 import ast
+import pandas
+
 def __exec_then_eval(code):
     ## processes statements and expressesions separatrly
     ## returns the value of last expression
@@ -16,7 +18,7 @@ def __exec_then_eval(code):
 def __saveToS3(obj,bucket,s3path,prefix=""):
     clz =  obj.__class__.__name__
     lastobject=None
-    if obj.__class__ == "pandas.core.frame.DataFrame":
+    if isinstance(obj,pandas.core.frame.DataFrame):
         import feather as ft
         ft.write_dataframe(obj,"/tmp/{}_lastobject.feather".format(prefix))
         lastobject = "{}_lastobject.feather".format(prefix)
