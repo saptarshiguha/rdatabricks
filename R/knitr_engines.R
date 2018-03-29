@@ -63,7 +63,9 @@ dbxCancelAllJobs <- function(...){
 
 
 getSavedData <- function(t,dataloc,p,verbose){
-    Sys.sleep(2) ##HACK
+    dbxSleepHack <- getOption("dbxSleepHack")
+    if(!is.null(dbxSleepHack))
+        Sys.sleep(dbxSleepHack) ##HACK
     system(sprintf("rm -rf %s/",t))
     gets <- sprintf("aws s3 sync %s/ %s/ > /dev/null 2>&1",dataloc,t)
     if(verbose) print(gets)
@@ -298,6 +300,7 @@ ___lastvalue", jg,bucket,datadir)
     statusResult$givenOpts = options
     statusResult$code2 = code
     if(showOutput){
+        cat("\n")
         cat(statusResult$x)
     }else{
         return(statusResult)
