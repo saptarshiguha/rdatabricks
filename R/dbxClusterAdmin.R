@@ -167,7 +167,13 @@ dbxStart <- function(cluster_id
                 st <- dbxGet(getOption("databricks")$clusterId)$state
                 if(verbose>4) print(st)
                 pb$tick(token=list(idx=as.character(cluster_id),state=st))
-                if(!is.null(st) && st !='RUNNING') {Sys.sleep(5)} else {    cat("\n");break}
+                if(!is.null(st) && st !='RUNNING') {
+                    if(st=="TERMINATED") stop(sprintf("Cluster %s got TERMINATED" ,as.character(cluster_id)))
+                    Sys.sleep(5)
+                } else {
+                    cat("\n");
+                    break
+                }
             }
         }else{
             if(grepl("Running", cl$"message")) {Sys.sleep(3);return(cl)}

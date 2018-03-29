@@ -62,17 +62,22 @@ dbxCancelAllJobs <- function(...){
 }
 
 
-getSavedData <- function(dataloc,p,verbose){
-    gets <- sprintf("rm -rf /tmp/jaxir ; aws s3 sync %s/ /tmp/jaxir &>/dev/null",dataloc)
+getSavedData <- function(t,dataloc,p,verbose){
+    Sys.sleep(2) ##HACK
+    system(sprintf("rm -rf %s/",t))
+    gets <- sprintf("aws s3 sync %s/ %s/ > /dev/null 2>&1",dataloc,t)
     if(verbose) print(gets)
-    system(gets)
-    if(file.exists(sprintf("/tmp/jaxir/%s_lastobject.feather",p))){
+    system(gets);
+    #print(sprintf("%s/%s_lastobject.json",t,p))
+    #print(list.files(sprintf("%s/",t),full=TRUE))
+    if(file.exists(sprintf("%s/%s_lastobject.feather",t,p))){
         require(feather)
         require(data.table)
-        data.table(read_feather(sprintf("/tmp/jaxir/%s_lastobject.feather",p)))
-    }else if(file.exists(sprintf("/tmp/jaxir/%s_lastobject.json",p))){
+        data.table(read_feather(sprintf("%s/%s_lastobject.feather",t,p)))
+    }else if(file.exists(sprintf("%s/%s_lastobject.json",t,p))){
         require(rjson)
-       fromJSON(file=sprintf("/tmp/jaxir/%s_lastobject.json",p))
+        #print(sprintf("%s/%s_lastobject.json",t,p))
+        fromJSON(file=sprintf("%s/%s_lastobject.json",t,p))
     }
 }
     
@@ -138,11 +143,11 @@ dbxExecuteCommand <- function(...){
 
     ## Show log output during code?
     sendRaw(code=sprintf("hdlr.clear()"),
-           instance=instance,
+            instance=instance,
             clusterId=clusterId,
             ctx=ctx,verbose=verbose,
             user=user,password=password,wait=TRUE)
-
+    
     if(displayLog){
         s3location <- getOption("databricks")$log$location
         tfile <- tempfile(pattern='dbx')
@@ -215,16 +220,16 @@ ___lastvalue
                           ctx=ctx,
                           user=user,password=password,
                           verbose=verbose)$id
-
     ## Get Status of Command before we get infos and progress
     status <- dbxCmdStatus(commandCtx,ctx,instance,clusterId,user,password)
-
     if (status$status=='Queued'){
-        warning("There is job already running, this won't run till that finishes. Call dbxCancelAllJobs() or wait")
+        warning("There is job already running, this won't run till that finishes. Call dbxCancelAllJobs() or wait"
+                ,immediate.=TRUE)
     }
     
     ## Since the command is not queue we should move to the end
     if(showProg){
+        tf <- tempfile()
         require(progress)
         pb <- progress_bar$new(format = "Elapsed :elapsed Job: :job Stages: :ndone/:nstage Names :name [:bar] :percent eta: :eta"
                             ,  clear = FALSE ,total=100, width = 120)
@@ -240,7 +245,10 @@ ___lastvalue
         }else if(isCommandRunning(status)){
             ## use the command context to query these since the main one has something running
             if(showProg){
-                #if(!autoSave) stop("Progress monitoring of jobs requires autoSave=TRUE")
+                                        #if(!autoSave) stop("Progress monitoring of jobs requires autoSave=TRUE")
+                on.exit({
+                    if(exists("tf")) unlink(tf,rec=TRUE)
+                })
                 monitor = sprintf("
 ___lastvalue = __exec_then_eval('''
 __getStuff(\'%s\')
@@ -252,8 +260,8 @@ ___lastvalue", jg,bucket,datadir)
                                  ,displayLog=FALSE
                                  ,showOutput=FALSE
                                  ,showCode=FALSE)
-                s <- getSavedData(dataloc,"q",verbose)
-                assign("foo",s,env=.GlobalEnv)
+                s <- getSavedData(tf,dataloc,"q",verbose)
+                #assign("foo",s,env=.GlobalEnv)
                 if(!is.null(s$data)){
                     s1 <- rbindlist(lapply(s$data, function(l){
                         as.data.table(l)
@@ -263,8 +271,8 @@ ___lastvalue", jg,bucket,datadir)
                     active <- s1[, sum(natasks>0)]
                     whichName <- s1[natasks>0, paste( unique(name),sep=" ",collapse="/")]
                     whichName <- sprintf("%s...",substr(whichName,1, min(30,nchar(whichName))))
-                 if(!pb$finished && !is.na(nprogress))
-                    pb$update(nprogress,tokens = list(job=s1$jobid[1],ndone=s1[,sum(nctasks==ntasks)],nstage = nrow(s1),name=whichName))
+                    if(!pb$finished && !is.na(nprogress))
+                        pb$update(nprogress,tokens = list(job=s1$jobid[1],ndone=s1[,sum(nctasks==ntasks)],nstage = nrow(s1),name=whichName))
                 }else{
                     if(!pb$finished)
                         pb$tick(1/1.0e6,token=list(job='',ndone=0, nstage=0, name=''))
@@ -279,7 +287,9 @@ ___lastvalue", jg,bucket,datadir)
     ## Wrap up: download any objects created
     assign(".Last.db",NULL,envi=.GlobalEnv)
     if(autoSave){
-        res <- getSavedData(dataloc,"p",verbose)
+        tf2 <- tempfile()
+        on.exit({ unlink(tf2,TRUE)},add=TRUE)
+        res <- getSavedData(tf2,dataloc,"p",verbose)
         assign(".Last.db",res,envir=.GlobalEnv)
         if(!is.null(options$storein)){
             assign(as.character(options$storein),res,envir=.GlobalEnv)

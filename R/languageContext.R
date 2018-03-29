@@ -56,17 +56,10 @@ dbxCtxMake <- function(language='python',instance=options("databricks")[[1]]$ins
 {
 
     checkOptions(instance, clusterId,user, password)
-    ## NEVER ALLOW MORE THAN One
-    ## ideally i would have created environments containing these attributes
-    ## ie. environment(lancontext,cmdcontext,instance, clusterid, user, password)
-    ## with a finalizder that would destroy both contexts 
-    ## and added a finalzer to delete them when objects go out of scope ...
-    ## which would mean a big chunk rewrite ...
-    ## no time now.
     dbxCtxDestroy(NULL)
-  url <- infuse("https://{{instance}}.cloud.databricks.com/api/1.2/contexts/create",instance=instance)
-  if(verbose>3) print(url)
-  if(verbose)
+    url <- infuse("https://{{instance}}.cloud.databricks.com/api/1.2/contexts/create",instance=instance)
+    if(verbose>3) print(url)
+    if(verbose)
       cat("Language context being created")
   pyctx<-POST(url,body=list(language=language, clusterId=clusterId)
     ,encode='form'
