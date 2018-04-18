@@ -18,8 +18,13 @@ def __saveToS32(obj,bucket,s3path,prefix=""):
     clz =  obj.__class__.__name__
     lastobject=None
     if isinstance(obj,pandas.core.frame.DataFrame):
-        import feather as ft
-        ft.write_dataframe(obj,"/tmp/{}_lastobject.feather".format(prefix))
+        from distutils.version import StrictVersion
+        pv = StrictVersion(pandas.__version__)
+        if pv.version[1]>=20:
+            obj.to_feather("/tmp/{}_lastobject.feather".format(prefix))
+        else:
+            import feather as ft
+            ft.write_dataframe(obj,"/tmp/{}_lastobject.feather".format(prefix))
         lastobject = "{}_lastobject.feather".format(prefix)
     elif clz == "dict":
         import json
@@ -54,8 +59,11 @@ def __saveToS32(obj,bucket,s3path,prefix=""):
             k = Key(b)
             k.key = keyname
             k.set_contents_from_filename("/tmp/{}".format(lastobject))
-        #thekey = b.lookup(keyname)
-        #thekey.add_email_grant('FULL_CONTROL', 'cloudservices-aws-dev@mozilla.com')
+        try:
+            thekey = b.lookup(keyname)
+            thekey.add_email_grant('FULL_CONTROL', 'cloudservices-aws-dev@mozilla.com')
+        except:
+            pass
     
 __saveToS3 = __saveToS32
 
@@ -69,8 +77,11 @@ def __cps3(bucket, path,infile):
   k = Key(b)
   k.key = path #'sguha/tmp/pydbx-logger.txt'
   k.set_contents_from_filename(infile)
-  #thekey = b.lookup(path)
-  #thekey.add_email_grant('FULL_CONTROL', 'cloudservices-aws-dev@mozilla.com')
+  try:
+      thekey = b.lookup(path)
+      thekey.add_email_grant('FULL_CONTROL', 'cloudservices-aws-dev@mozilla.com')
+  except:
+      pass
 
 
   
@@ -78,6 +89,7 @@ def __getStuff(oo):
     from time import gmtime, strftime
     v=sc.statusTracker().getJobIdsForGroup(oo)
     v = filter(lambda x: sc.statusTracker().getJobInfo(x).status=='RUNNING',v)
+    v = [x for x in v]
     if len(v)>0:
         v2=sc.statusTracker().getJobInfo(v[0])
         s=list(v2.stageIds)

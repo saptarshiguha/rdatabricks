@@ -116,7 +116,7 @@ dbxExecuteCommand <- function(...){
     varEnv <- ifn(options$varEnv, .GlobalEnv)
     stopOnError <- ifn(options$stopOnError,TRUE)
     if(stopOnError)
-        stopOnError <- stop
+        stopOnError <- function(e,...) { cat(list(...)$parseException); stop(e) }
     else
         stopOnError <- function(s) warning(s, immediate.=TRUE)
 
@@ -242,7 +242,13 @@ ___lastvalue
         show.logger()
         if(statusResult$type=='error'){
             assign(".Last.dberr",list(status,statusResult),env=.GlobalEnv)
-            stopOnError(sprintf("%s\nPython Error\n",status$results$cause))
+            str <- sprintf("%s\nPython Error\n",status$results$cause)
+            if(grepl("\nParseException: ",status$results$cause)){
+                ff <- status$results$cause
+                suffix <- regexec("ParseException: u\"\\\\n(.*)\\\\n\"", ff)
+                str2 <- gsub("\\\\n","\n",sprintf("%s\n",regmatches(ff,suffix)[[1]][2]))
+            }else str2=""
+            stopOnError(sprintf("%s\n%s\nPython Error\n",str,str2))
             break
         }else if(isCommandRunning(status)){
             ## use the command context to query these since the main one has something running
