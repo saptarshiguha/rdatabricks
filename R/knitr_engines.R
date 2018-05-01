@@ -245,7 +245,7 @@ ___lastvalue
             str <- sprintf("%s\nPython Error\n",status$results$cause)
             if(grepl("\nParseException: ",status$results$cause)){
                 ff <- status$results$cause
-                suffix <- regexec("ParseException: u\"\\\\n(.*)\\\\n\"", ff)
+                suffix <- regexec("ParseException: [u]*\"\\\\n(.*)\\\\n\"", ff)
                 str2 <- gsub("\\\\n","\n",sprintf("%s\n",regmatches(ff,suffix)[[1]][2]))
             }else str2=""
             stopOnError(sprintf("%s\n%s\nPython Error\n",str,str2))
