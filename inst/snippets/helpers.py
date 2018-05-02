@@ -31,7 +31,7 @@ def __saveToS32(obj,bucket,s3path,prefix=""):
         with open("/tmp/{}_lastobject.json".format(prefix), "w") as outfile:
             json.dump(obj, outfile)
             lastobject="{}_lastobject.json".format(prefix)
-    CHUNK = 52428800
+    CHUNK = 100*1024*1024
     if lastobject is not None:
         import math, os
         import boto
@@ -47,14 +47,20 @@ def __saveToS32(obj,bucket,s3path,prefix=""):
             ## http://boto.cloudhackers.com/en/latest/s3_tut.html#storing-large-data
             chunk_count = int(math.ceil(source_size / float(CHUNK)))
             mp = b.initiate_multipart_upload(keyname)
+            onedone = False
             try:
-                for i in range(chunk_count):
-                    offset = chunk_size * i
-                    bytes = min(CHUNK, source_size - offset)
-                    with FileChunkIO(lastobject, 'r', offset=offset,bytes=bytes) as fp:
-                        mp.upload_part_from_file(fp, part_num=i + 1)
-            except:
-                mp.complete_upload()
+                for i in range(chunk_count+1):
+                   offset = CHUNK * i
+                   bytes = min(CHUNK, source_size - offset)
+                   with FileChunkIO("/tmp/{}".format(lastobject),
+                                    'r', offset=offset,bytes=bytes) as fp:
+                       onedone = True
+                       mp.upload_part_from_file(fp, part_num=i + 1)
+            finally:
+                if not onedone:
+                    mp.cancel_upload()
+                else:
+                    mp.complete_upload()
         else:
             k = Key(b)
             k.key = keyname
