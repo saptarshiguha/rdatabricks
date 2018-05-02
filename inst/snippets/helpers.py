@@ -70,9 +70,22 @@ def __saveToS32(obj,bucket,s3path,prefix=""):
             thekey.add_email_grant('FULL_CONTROL', 'cloudservices-aws-dev@mozilla.com')
         except:
             pass
-    
+
+        
 __saveToS3 = __saveToS32
 
+
+def fixKey(path):
+    import boto
+    from boto.s3.connection import S3Connection
+    from boto.s3.key import Key
+    from urlparse import urlparse
+    o = urlparse(path)
+    c = boto.connect_s3()
+    b = c.get_bucket(o.netloc)
+    thekey = b.lookup(o.path)
+    thekey.add_email_grant('FULL_CONTROL', 'cloudservices-aws-dev@mozilla.com')
+    
 def __cps3(bucket, path,infile):
   import boto
   from boto.s3.connection import S3Connection
