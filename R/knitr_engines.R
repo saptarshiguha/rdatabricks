@@ -247,6 +247,8 @@ ___lastvalue
                 ff <- status$results$cause
                 suffix <- regexec("ParseException: [u]*\"\\\\n(.*)\\\\n\"", ff)
                 if(length(regmatches(ff,suffix)[[1]])==0)
+                    suffix <- regexec("ParseException: [u]*\'\\\\n(.*)\\\\n\'", ff)
+                if(length(regmatches(ff,suffix)[[1]])==0)
                     suffix <- regexec("AnalysisException: [u]*\"(.*)\\\\n\"", ff)
                 str2 <- gsub("\\\\n","\n",sprintf("%s\n",regmatches(ff,suffix)[[1]][2]))
             }else str2=""
